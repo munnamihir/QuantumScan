@@ -138,6 +138,40 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   .workspace{grid-template-columns:1fr;grid-template-rows:1fr 1fr;}
   .pane-left{border-right:none;border-bottom:1px solid var(--border);}
 }
+
+/* DRAG DROP */
+.drop-overlay{position:absolute;inset:0;background:rgba(0,229,255,0.06);border:2px dashed var(--cyan);border-radius:0;display:none;align-items:center;justify-content:center;z-index:20;flex-direction:column;gap:0.5rem;}
+.drop-overlay.active{display:flex;}
+.drop-text{font-size:0.8rem;color:var(--cyan);letter-spacing:1px;}
+.drop-sub{font-size:0.62rem;color:var(--muted);}
+
+/* FILTER BUTTONS */
+.filter-bar{display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;padding:0.5rem 1rem;border-bottom:1px solid var(--border);background:var(--bg3);flex-shrink:0;}
+.filt-btn{font-size:0.58rem;letter-spacing:1px;text-transform:uppercase;padding:3px 9px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all 0.15s;font-family:'JetBrains Mono',monospace;}
+.filt-btn:hover{color:var(--text);border-color:rgba(255,255,255,0.2);}
+.filt-btn.active{color:#000;font-weight:500;}
+.filt-btn.all.active{background:var(--cyan);border-color:var(--cyan);}
+.filt-btn.critical.active{background:var(--red);border-color:var(--red);}
+.filt-btn.high.active{background:var(--orange);border-color:var(--orange);}
+.filt-btn.medium.active{background:var(--gold);border-color:var(--gold);}
+.filt-btn.low.active{background:var(--green);border-color:var(--green);}
+.export-btn{margin-left:auto;font-size:0.58rem;letter-spacing:1px;padding:3px 9px;border-radius:3px;border:1px solid rgba(245,197,24,0.3);background:rgba(245,197,24,0.06);color:var(--gold);cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all 0.15s;}
+.export-btn:hover{background:rgba(245,197,24,0.14);}
+
+/* COPY FIX BUTTON */
+.copy-fix-btn{float:right;font-size:0.55rem;padding:2px 7px;border-radius:3px;border:1px solid rgba(57,255,20,0.3);background:rgba(57,255,20,0.06);color:var(--green);cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all 0.15s;margin-left:8px;}
+.copy-fix-btn:hover{background:rgba(57,255,20,0.15);}
+.copy-fix-btn.copied{border-color:var(--cyan);color:var(--cyan);background:rgba(0,229,255,0.08);}
+
+/* LIVE SCAN DOT */
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;display:none;}
+.live-dot.active{display:block;animation:livePulse 1.4s infinite;}
+@keyframes livePulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+
+/* SHORTCUT LEGEND */
+.shortcut-legend{padding:0.45rem 1.25rem;border-top:1px solid rgba(255,255,255,0.04);background:rgba(0,0,0,0.2);display:flex;gap:1.25rem;flex-wrap:wrap;flex-shrink:0;}
+.sc-item{display:flex;align-items:center;gap:5px;font-size:0.56rem;color:var(--muted);}
+.sc-key{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:3px;padding:1px 5px;color:rgba(200,216,232,0.6);font-family:'JetBrains Mono',monospace;font-size:0.55rem;}
 </style>
 </head>
 <body>
@@ -152,6 +186,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
       <span class="hbadge cyan">HNDL Detection</span>
       <span class="hbadge gold">NIST PQC 2024</span>
       <span class="hbadge cyan">JS · Python · Java · Go · C# · Rust</span>
+      <div class="live-dot" id="liveDot" title="Live scan active"></div>
     </div>
   </div>
 </header>
@@ -175,7 +210,8 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
       </select>
       <span id="detectedLang" class="lang-badge auto">Paste code →</span>
     </div>
-    <div class="editor-wrap">
+    <div class="editor-wrap" id="editorWrap" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+      <div class="drop-overlay" id="dropOverlay"><div class="drop-text">Drop file here</div><div class="drop-sub">.js · .ts · .py · .java · .go · .cs · .rs · .rb · .php</div></div>
       <div class="line-nums" id="lineNums">1</div>
       <textarea class="code-textarea" id="codeInput"
         placeholder="Paste your code here...
@@ -204,6 +240,14 @@ QuantumScan will:
       <span class="pane-title">Vulnerability Report</span>
       <span id="findingCount" style="font-size:0.62rem;color:var(--muted);margin-left:auto;"></span>
     </div>
+    <div class="filter-bar" id="filterBar" style="display:none;">
+      <button class="filt-btn all active" onclick="setFilter('all',this)">All</button>
+      <button class="filt-btn critical" onclick="setFilter('critical',this)">Critical</button>
+      <button class="filt-btn high" onclick="setFilter('high',this)">High</button>
+      <button class="filt-btn medium" onclick="setFilter('medium',this)">Medium</button>
+      <button class="filt-btn low" onclick="setFilter('low',this)">Low</button>
+      <button class="export-btn" onclick="exportMarkdown()">↓ Export .md</button>
+    </div>
     <div class="results-inner" id="resultsPane">
       <div class="empty-state">
         <div class="empty-icon">⬡</div>
@@ -211,11 +255,6 @@ QuantumScan will:
         <div class="empty-hint">Paste your code on the left and click Scan. QuantumScan checks for RSA, ECDH, ECDSA, DH, MD5, SHA-1, and other quantum-vulnerable primitives with exact line numbers.</div>
       </div>
     </div>
-  </div>
-
-</div>
-</div>
-
 <script>
 // ══════════════════════════════════════════
 // VULNERABILITY DATABASE
@@ -459,7 +498,7 @@ var VULN_DB = [
     hndl:15, qdayRisk:'CRITICAL',
     attack:'Hardcoded RSA key in source code is immediately harvestable. Quantum computer breaks it retroactively.',
     fix:'Remove from code immediately. Rotate the key. Use secrets manager.',
-    diffVuln:"const PRIVATE_KEY = `-----BEGIN RSA PRIVATE KEY-----\n...`",
+    diffVuln:"const PRIVATE_KEY = '-----BEGIN RSA PRIVATE KEY-----\\n...'  // NEVER hardcode keys",
     diffFix:"// Never hardcode keys. Use environment variables:\nconst privateKey = process.env.PRIVATE_KEY;" },
 
   { lang:['auto','js','py','java','go','cs','rs','rb','php'], sev:'HIGH', name:'Diffie-Hellman (DH) Key Exchange',
@@ -540,8 +579,11 @@ function runScan() {
   var sevOrder = {CRITICAL:0, HIGH:1, MEDIUM:2, LOW:3, INFO:4};
   findings.sort((a,b) => (sevOrder[a.sev]||5) - (sevOrder[b.sev]||5) || a.lineNum - b.lineNum);
 
+  window._lastFindings = findings;
+  window._lastLang = lang;
   renderResults(findings, lang, lines.length);
   updateLineNums(findings, lines.length);
+  document.getElementById('filterBar').style.display = findings.length > 0 ? 'flex' : 'none';
 }
 
 function updateLineNums(findings, totalLines) {
@@ -610,8 +652,12 @@ function renderResults(findings, lang, lineCount) {
     // Attack description
     html += '<div class="finding-issue"><b style="color:var(--red);">Attack:</b> '+f.attack+'</div>';
     html += '<div class="finding-issue" style="margin-bottom:0.6rem;"><b style="color:var(--green);">Fix:</b> '+f.fix+'</div>';
-    // Diff
-    html += '<div class="code-diff">';
+    // Copy fix button + Diff
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">';
+    html += '<span style="font-size:0.58rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);">Diff — vulnerable → PQC fix</span>';
+    html += '<button class="copy-fix-btn" id="cpbtn_'+i+'" onclick="copyFix('+i+',event)">Copy fix</button>';
+    html += '</div>';
+    html += '<div class="code-diff" id="diff_'+i+'">';
     html += '<div class="diff-row ctx"><span class="diff-marker"> </span><span class="diff-ln">'+(f.lineNum-1>0?f.lineNum-1:'')+'</span><span style="opacity:0.4;">...</span></div>';
     f.diffVuln.split('\n').forEach(function(line, di) {
       html += '<div class="diff-row vuln"><span class="diff-marker">−</span><span class="diff-ln">'+(f.lineNum+di)+'</span>'+escHtml(line)+'</div>';
@@ -818,10 +864,174 @@ function clearCode() {
   document.getElementById('findingCount').textContent = '';
 }
 
-// Ctrl+Enter to scan
+
+// ══ COPY FIX ══
+function copyFix(i, e) {
+  e.stopPropagation();
+  var findings = window._lastFindings || [];
+  if (!findings[i]) return;
+  var text = findings[i].diffFix;
+  navigator.clipboard.writeText(text).then(function() {
+    var btn = document.getElementById('cpbtn_' + i);
+    if (!btn) return;
+    btn.textContent = 'Copied ✓';
+    btn.classList.add('copied');
+    setTimeout(function() { btn.textContent = 'Copy fix'; btn.classList.remove('copied'); }, 1800);
+  });
+}
+
+// ══ FILTER ══
+var _activeFilter = 'all';
+function setFilter(sev, btn) {
+  _activeFilter = sev;
+  document.querySelectorAll('.filt-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  var findings = document.querySelectorAll('.finding');
+  findings.forEach(function(f) {
+    if (sev === 'all') { f.style.display = ''; return; }
+    f.style.display = f.classList.contains(sev) ? '' : 'none';
+  });
+  var visible = Array.from(findings).filter(function(f) { return f.style.display !== 'none'; }).length;
+  document.getElementById('findingCount').textContent = visible + ' finding' + (visible !== 1 ? 's' : '') + (sev !== 'all' ? ' · ' + sev : '');
+}
+
+// ══ EXPORT MARKDOWN ══
+function exportMarkdown() {
+  var findings = window._lastFindings || [];
+  if (!findings.length) { alert('Run a scan first.'); return; }
+  var lang = window._lastLang || 'unknown';
+  var now = new Date().toISOString().slice(0,10);
+  var sevScore = {CRITICAL:100, HIGH:75, MEDIUM:40, LOW:15};
+  var rawScore = Math.min(100, Math.round(findings.reduce(function(s,f){return s+(sevScore[f.sev]||10);},0)/findings.length));
+  var lines = [];
+  lines.push('# QuantumScan Report');
+  lines.push('');
+  lines.push('**Generated:** ' + now);
+  lines.push('**Language:** ' + lang);
+  lines.push('**Risk Score:** ' + rawScore + '/100');
+  lines.push('**Findings:** ' + findings.length);
+  lines.push('');
+  lines.push('---');
+  lines.push('');
+  lines.push('## Summary');
+  lines.push('');
+  var counts = {CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0};
+  findings.forEach(function(f){counts[f.sev]=(counts[f.sev]||0)+1;});
+  if(counts.CRITICAL) lines.push('- CRITICAL: ' + counts.CRITICAL);
+  if(counts.HIGH)     lines.push('- HIGH: ' + counts.HIGH);
+  if(counts.MEDIUM)   lines.push('- MEDIUM: ' + counts.MEDIUM);
+  if(counts.LOW)      lines.push('- LOW: ' + counts.LOW);
+  lines.push('');
+  lines.push('---');
+  lines.push('');
+  lines.push('## Findings');
+  lines.push('');
+  findings.forEach(function(f, i) {
+    lines.push('### ' + (i+1) + '. [' + f.sev + '] ' + f.name);
+    lines.push('');
+    lines.push('**Line:** ' + f.lineNum);
+    lines.push('**HNDL Window:** ' + f.hndl + ' years (data exposed until ~' + (2026+f.hndl) + ')');
+    lines.push('**Q-Day Risk:** ' + f.qdayRisk);
+    lines.push('');
+    lines.push('**Attack:** ' + f.attack);
+    lines.push('');
+    lines.push('**Fix:** ' + f.fix);
+    lines.push('');
+    lines.push('**Vulnerable code:**');
+    lines.push('```');
+    lines.push(f.diffVuln);
+    lines.push('```');
+    lines.push('');
+    lines.push('**PQC replacement:**');
+    lines.push('```');
+    lines.push(f.diffFix);
+    lines.push('```');
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+  });
+  lines.push('_Generated by QuantumScan — github.com/munnamihir_');
+  var md = lines.join('\n');
+  var blob = new Blob([md], {type:'text/markdown'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'quantumscan-report-' + now + '.md';
+  a.click();
+}
+
+// ══ DRAG & DROP ══
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('dropOverlay').classList.add('active');
+}
+function handleDragLeave(e) {
+  if (!document.getElementById('editorWrap').contains(e.relatedTarget)) {
+    document.getElementById('dropOverlay').classList.remove('active');
+  }
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropOverlay').classList.remove('active');
+  var file = e.dataTransfer.files[0];
+  if (!file) return;
+  var allowed = ['.js','.ts','.py','.java','.go','.cs','.rs','.rb','.php'];
+  var ext = '.' + file.name.split('.').pop().toLowerCase();
+  if (!allowed.includes(ext)) { alert('Unsupported file type. Drop: ' + allowed.join(' ')); return; }
+  var langMap = {'.js':'js','.ts':'js','.py':'py','.java':'java','.go':'go','.cs':'cs','.rs':'rs','.rb':'rb','.php':'php'};
+  var detectedLang = langMap[ext] || 'auto';
+  document.getElementById('langSelect').value = detectedLang;
+  onLangChange();
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    document.getElementById('codeInput').value = ev.target.result;
+    onCodeInput();
+    // Auto-scan after drop
+    setTimeout(runScan, 100);
+  };
+  reader.readAsText(file);
+}
+
+// ══ LIVE SCAN ══
+var _liveEnabled = false;
+var _liveTimer = null;
+function toggleLiveScan() {
+  _liveEnabled = !_liveEnabled;
+  var dot = document.getElementById('liveDot');
+  if (dot) { dot.classList.toggle('active', _liveEnabled); dot.style.display = _liveEnabled ? 'block' : 'none'; }
+}
+// Hook into existing onCodeInput for live scan
+var _origOnCodeInput = onCodeInput;
+onCodeInput = function() {
+  _origOnCodeInput();
+  if (!_liveEnabled) return;
+  clearTimeout(_liveTimer);
+  _liveTimer = setTimeout(function() {
+    var code = document.getElementById('codeInput').value;
+    if (code.trim().length > 10) runScan();
+  }, 600);
+};
+
+// ══ EXPAND / COLLAPSE ALL ══
+function expandAll() {
+  document.querySelectorAll('.finding-body').forEach(function(b) { b.classList.add('open'); });
+  document.querySelectorAll('.finding-chevron').forEach(function(c) { c.classList.add('open'); });
+}
+function collapseAll() {
+  document.querySelectorAll('.finding-body').forEach(function(b) { b.classList.remove('open'); });
+  document.querySelectorAll('.finding-chevron').forEach(function(c) { c.classList.remove('open'); });
+}
+
+// ══ KEYBOARD SHORTCUTS ══
 document.addEventListener('keydown', function(e) {
-  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') runScan();
+  var mod = e.ctrlKey || e.metaKey;
+  if (mod && e.key === 'Enter') { e.preventDefault(); runScan(); return; }
+  if (mod && e.key === 'l') { e.preventDefault(); clearCode(); return; }
+  if (mod && e.key === 'e') { e.preventDefault(); loadExample(); return; }
+  if (mod && e.key === '/') { e.preventDefault(); var anyOpen=document.querySelector('.finding-body.open'); anyOpen?collapseAll():expandAll(); return; }
+  if (mod && e.shiftKey && e.key === 'S') { e.preventDefault(); toggleLiveScan(); return; }
+  if (e.key === 'Escape') { collapseAll(); }
 });
+
 </script>
 </body>
 </html>
