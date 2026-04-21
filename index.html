@@ -269,7 +269,7 @@ header{background:rgba(3,8,16,0.95);border-bottom:1px solid var(--border);paddin
     </div>
     <div class="editor-wrap" id="editorWrap" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
       <div class="drop-overlay" id="dropOverlay"><div class="drop-text">Drop file here</div><div class="drop-sub">.js .ts .py .java .go .cs .rs</div></div>
-      <div class="line-nums" id="lineNums">1</div>
+      <div class="line-nums" id="lineNums"><div>1</div></div>
       <textarea class="code-textarea" id="codeInput"
         placeholder="Paste your code here...
 
@@ -846,7 +846,7 @@ function onCodeInput() {
   var ta = document.getElementById('codeInput');
   var lines = ta.value.split('\n');
   var lnDiv = document.getElementById('lineNums');
-  lnDiv.textContent = lines.map((_,i)=>i+1).join('\n');
+  lnDiv.innerHTML = lines.map((_,i) => '<div>'+(i+1)+'</div>').join('');
   document.getElementById('charCount').textContent = lines.length + ' lines';
   var sel = document.getElementById('langSelect').value;
   if (sel === 'auto') {
@@ -1087,7 +1087,7 @@ function loadExample(){
 }
 function clearCode(){
   document.getElementById('codeInput').value='';
-  document.getElementById('lineNums').textContent='1';
+  document.getElementById('lineNums').innerHTML='<div>1</div>';
   document.getElementById('charCount').textContent='0 lines';
   document.getElementById('detectedLang').textContent='Paste code →';
   document.getElementById('detectedLang').className='lang-badge auto';
