@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>QuantumScan — Code Quantum Vulnerability Scanner</title>
+<title>QuantumScan AI — PQC Migration Agent</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23040812'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-size='18' fill='%2300e5ff'>⬡</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -12,6 +12,7 @@
   --cyan:#00e5ff;--gold:#f5c518;--green:#39ff14;
   --red:#ff5f5f;--orange:#ff8c42;--purple:#cc88ff;
   --text:#c8d8e8;--muted:#5a7a9a;--border:rgba(0,229,255,0.12);
+  --ai:#7c5cfc;--ai2:#a78bfa;--ai-bg:rgba(124,92,252,0.08);--ai-border:rgba(124,92,252,0.25);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 html{scroll-behavior:smooth;}
@@ -19,24 +20,33 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-thumb{background:rgba(0,229,255,0.3);border-radius:2px;}
 
-/* LAYOUT */
-.app{display:grid;grid-template-rows:auto 1fr;min-height:100vh;}
+/* GRID BG */
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,229,255,0.018) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,0.018) 1px,transparent 1px);background-size:50px 50px;pointer-events:none;z-index:0;}
+.app{position:relative;z-index:1;display:grid;grid-template-rows:auto 1fr;min-height:100vh;}
+
+/* HEADER */
 header{background:rgba(3,8,16,0.95);border-bottom:1px solid var(--border);padding:0 2rem;backdrop-filter:blur(12px);position:sticky;top:0;z-index:100;}
-.header-inner{display:flex;align-items:center;gap:1.5rem;max-width:1600px;margin:0 auto;height:56px;}
+.header-inner{display:flex;align-items:center;gap:1.5rem;max-width:1800px;margin:0 auto;height:56px;}
 .brand{font-family:'Orbitron',sans-serif;font-weight:900;font-size:1rem;color:var(--cyan);letter-spacing:2px;white-space:nowrap;}
 .brand span{color:var(--gold);}
 .brand-sub{font-size:0.6rem;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;}
-.header-badges{display:flex;gap:0.5rem;margin-left:auto;}
+.header-badges{display:flex;gap:0.5rem;margin-left:auto;align-items:center;}
 .hbadge{font-size:0.58rem;letter-spacing:1px;padding:3px 8px;border-radius:3px;text-transform:uppercase;}
 .hbadge.cyan{background:rgba(0,229,255,0.08);color:var(--cyan);border:1px solid rgba(0,229,255,0.2);}
 .hbadge.gold{background:rgba(245,197,24,0.08);color:var(--gold);border:1px solid rgba(245,197,24,0.2);}
+.hbadge.ai{background:var(--ai-bg);color:var(--ai2);border:1px solid var(--ai-border);cursor:pointer;transition:background 0.2s;}
+.hbadge.ai:hover{background:rgba(124,92,252,0.15);}
+.hbadge.ai.connected{background:rgba(57,255,20,0.08);color:var(--green);border-color:rgba(57,255,20,0.3);}
 
-/* MAIN 2-PANEL */
-.workspace{display:grid;grid-template-columns:1fr 1fr;height:calc(100vh - 56px);max-width:1600px;margin:0 auto;width:100%;}
+/* MAIN 3-PANEL */
+.workspace{display:grid;grid-template-columns:1fr 1fr 380px;height:calc(100vh - 56px);max-width:1800px;margin:0 auto;width:100%;}
 .pane{display:flex;flex-direction:column;overflow:hidden;}
 .pane-left{border-right:1px solid var(--border);}
+.pane-mid{border-right:1px solid var(--border);}
 .pane-header{padding:0.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:0.75rem;flex-shrink:0;}
 .pane-title{font-size:0.62rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+
+/* LANG STUFF */
 .lang-badge{font-size:0.58rem;padding:2px 8px;border-radius:3px;font-weight:500;}
 .lang-badge.js{background:rgba(245,197,24,0.15);color:var(--gold);}
 .lang-badge.py{background:rgba(57,255,20,0.1);color:var(--green);}
@@ -45,30 +55,44 @@ header{background:rgba(3,8,16,0.95);border-bottom:1px solid var(--border);paddin
 .lang-badge.cs{background:rgba(204,136,255,0.1);color:var(--purple);}
 .lang-badge.rs{background:rgba(255,140,66,0.1);color:var(--orange);}
 .lang-badge.auto{background:rgba(255,255,255,0.05);color:var(--muted);}
+.lang-select{background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:0.65rem;outline:none;cursor:pointer;}
 
-/* CODE EDITOR */
+/* EDITOR */
 .editor-wrap{position:relative;flex:1;overflow:hidden;display:flex;}
-.line-nums{background:rgba(0,0,0,0.3);padding:1rem 0.6rem;text-align:right;font-size:0.7rem;color:rgba(255,255,255,0.15);line-height:1.7;min-width:44px;overflow:hidden;user-select:none;flex-shrink:0;font-family:'JetBrains Mono',monospace;}
+.drop-overlay{position:absolute;inset:0;background:rgba(0,229,255,0.06);border:2px dashed var(--cyan);display:none;align-items:center;justify-content:center;z-index:20;flex-direction:column;gap:0.5rem;}
+.drop-overlay.active{display:flex;}
+.drop-text{font-size:0.8rem;color:var(--cyan);letter-spacing:1px;}
+.drop-sub{font-size:0.62rem;color:var(--muted);}
+.line-nums{background:rgba(0,0,0,0.3);padding:1rem 0.6rem;text-align:right;font-size:0.7rem;color:rgba(255,255,255,0.15);line-height:1.7;min-width:44px;overflow:hidden;user-select:none;flex-shrink:0;font-family:'JetBrains Mono',monospace;overflow-y:hidden;}
 .line-nums .ln-vuln{color:var(--red);font-weight:500;}
 .code-textarea{flex:1;background:transparent;border:none;outline:none;padding:1rem;font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:var(--text);line-height:1.7;resize:none;tab-size:2;overflow:auto;white-space:pre;}
-.code-highlight-overlay{position:absolute;top:0;left:44px;right:0;bottom:0;pointer-events:none;overflow:hidden;padding:1rem;font-family:'JetBrains Mono',monospace;font-size:0.72rem;line-height:1.7;white-space:pre;}
-.editor-actions{padding:0.6rem 1.25rem;border-top:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:0.75rem;flex-shrink:0;}
+.editor-actions{padding:0.6rem 1.25rem;border-top:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:0.75rem;flex-shrink:0;flex-wrap:wrap;}
 .btn{padding:0.55rem 1.2rem;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:0.65rem;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all 0.2s;border:none;}
 .btn-scan{background:var(--cyan);color:#000;font-weight:500;}
 .btn-scan:hover{background:#fff;transform:translateY(-1px);}
 .btn-clear{background:rgba(255,255,255,0.05);color:var(--muted);border:1px solid var(--border);}
-.btn-clear:hover{color:var(--text);border-color:rgba(255,255,255,0.2);}
+.btn-clear:hover{color:var(--text);}
 .btn-example{background:rgba(245,197,24,0.08);color:var(--gold);border:1px solid rgba(245,197,24,0.2);}
 .btn-example:hover{background:rgba(245,197,24,0.15);}
 .char-count{font-size:0.6rem;color:var(--muted);margin-left:auto;}
 
-/* RESULTS PANE */
+/* RESULTS */
+.filter-bar{display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;padding:0.5rem 1rem;border-bottom:1px solid var(--border);background:var(--bg3);flex-shrink:0;}
+.filt-btn{font-size:0.58rem;letter-spacing:1px;text-transform:uppercase;padding:3px 9px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all 0.15s;font-family:'JetBrains Mono',monospace;}
+.filt-btn:hover{color:var(--text);}
+.filt-btn.active{color:#000;font-weight:500;}
+.filt-btn.all.active{background:var(--cyan);border-color:var(--cyan);}
+.filt-btn.critical.active{background:var(--red);border-color:var(--red);}
+.filt-btn.high.active{background:var(--orange);border-color:var(--orange);}
+.filt-btn.medium.active{background:var(--gold);border-color:var(--gold);}
+.filt-btn.low.active{background:var(--green);border-color:var(--green);}
+.export-btn{margin-left:auto;font-size:0.58rem;letter-spacing:1px;padding:3px 9px;border-radius:3px;border:1px solid rgba(245,197,24,0.3);background:rgba(245,197,24,0.06);color:var(--gold);cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all 0.15s;}
+.export-btn:hover{background:rgba(245,197,24,0.14);}
 .results-inner{flex:1;overflow-y:auto;padding:1rem;}
 
 /* SCORE CARD */
 .score-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:1.25rem;margin-bottom:1rem;display:flex;align-items:center;gap:1.5rem;}
 .score-ring{position:relative;width:80px;height:80px;flex-shrink:0;}
-.score-ring canvas{border-radius:50%;}
 .score-number{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
 .score-num{font-family:'Orbitron',sans-serif;font-weight:700;font-size:1.4rem;line-height:1;}
 .score-label{font-size:0.5rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);}
@@ -81,23 +105,33 @@ header{background:rgba(3,8,16,0.95);border-bottom:1px solid var(--border);paddin
 .spill.high{background:rgba(255,140,66,0.1);color:var(--orange);border:1px solid rgba(255,140,66,0.25);}
 .spill.medium{background:rgba(245,197,24,0.08);color:var(--gold);border:1px solid rgba(245,197,24,0.2);}
 .spill.low{background:rgba(57,255,20,0.06);color:var(--green);border:1px solid rgba(57,255,20,0.2);}
-.spill.safe{background:rgba(57,255,20,0.06);color:var(--green);border:1px solid rgba(57,255,20,0.2);}
 
-/* FINDING CARD */
+/* AI AGENT BANNER */
+.ai-banner{background:linear-gradient(135deg,rgba(124,92,252,0.12),rgba(0,229,255,0.06));border:1px solid var(--ai-border);border-radius:10px;padding:1rem 1.25rem;margin-bottom:1rem;display:none;}
+.ai-banner.show{display:block;}
+.ai-banner-title{font-size:0.7rem;color:var(--ai2);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:0.6rem;display:flex;align-items:center;gap:6px;}
+.ai-banner-title::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ai2);animation:aiPulse 2s infinite;}
+@keyframes aiPulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+.ai-actions{display:flex;gap:0.5rem;flex-wrap:wrap;}
+.ai-btn{padding:0.5rem 1rem;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:0.62rem;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all 0.2s;border:1px solid var(--ai-border);background:var(--ai-bg);color:var(--ai2);}
+.ai-btn:hover{background:rgba(124,92,252,0.18);border-color:var(--ai2);}
+.ai-btn:disabled{opacity:0.4;cursor:not-allowed;}
+.ai-btn.primary{background:var(--ai);color:#fff;border-color:var(--ai);}
+.ai-btn.primary:hover{background:#9d7dfd;}
+
+/* FINDING CARDS */
 .finding{background:var(--bg3);border-radius:8px;margin-bottom:0.75rem;overflow:hidden;border:1px solid transparent;transition:border-color 0.2s;}
 .finding:hover{border-color:var(--border);}
 .finding.critical{border-left:3px solid var(--red);}
 .finding.high{border-left:3px solid var(--orange);}
 .finding.medium{border-left:3px solid var(--gold);}
 .finding.low{border-left:3px solid var(--green);}
-.finding.safe_note{border-left:3px solid var(--muted);}
 .finding-header{padding:0.75rem 1rem;display:flex;align-items:flex-start;gap:0.75rem;cursor:pointer;user-select:none;}
 .finding-sev{font-size:0.55rem;letter-spacing:1.5px;text-transform:uppercase;padding:3px 7px;border-radius:3px;flex-shrink:0;margin-top:1px;}
 .finding-sev.critical{background:rgba(255,95,95,0.15);color:var(--red);}
 .finding-sev.high{background:rgba(255,140,66,0.12);color:var(--orange);}
 .finding-sev.medium{background:rgba(245,197,24,0.1);color:var(--gold);}
 .finding-sev.low{background:rgba(57,255,20,0.08);color:var(--green);}
-.finding-sev.safe_note{background:rgba(255,255,255,0.05);color:var(--muted);}
 .finding-main{flex:1;}
 .finding-algo{font-size:0.78rem;font-weight:500;color:#fff;margin-bottom:2px;}
 .finding-line{font-size:0.62rem;color:var(--muted);}
@@ -118,8 +152,52 @@ header{background:rgba(3,8,16,0.95);border-bottom:1px solid var(--border);paddin
 .diff-row.ctx{background:rgba(255,255,255,0.02);color:rgba(200,216,232,0.45);}
 .diff-marker{flex-shrink:0;width:12px;opacity:0.7;}
 .diff-ln{flex-shrink:0;width:28px;text-align:right;opacity:0.4;font-size:0.6rem;}
-.ref-link{font-size:0.62rem;color:var(--cyan);text-decoration:none;display:inline-flex;align-items:center;gap:4px;margin-top:0.5rem;opacity:0.7;}
-.ref-link:hover{opacity:1;}
+.copy-fix-btn{float:right;font-size:0.55rem;padding:2px 7px;border-radius:3px;border:1px solid rgba(57,255,20,0.3);background:rgba(57,255,20,0.06);color:var(--green);cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all 0.15s;margin-left:8px;}
+.copy-fix-btn:hover{background:rgba(57,255,20,0.15);}
+.copy-fix-btn.copied{border-color:var(--cyan);color:var(--cyan);background:rgba(0,229,255,0.08);}
+
+/* AI FIX SECTION inside finding */
+.ai-fix-section{margin-top:0.75rem;border-top:1px solid var(--ai-border);padding-top:0.75rem;}
+.ai-fix-btn-sm{font-size:0.58rem;padding:3px 10px;border-radius:4px;border:1px solid var(--ai-border);background:var(--ai-bg);color:var(--ai2);cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all 0.2s;letter-spacing:0.5px;}
+.ai-fix-btn-sm:hover{background:rgba(124,92,252,0.18);}
+.ai-fix-btn-sm:disabled{opacity:0.4;cursor:not-allowed;}
+.ai-result-box{background:rgba(0,0,0,0.3);border:1px solid var(--ai-border);border-radius:6px;padding:0.75rem;margin-top:0.6rem;font-size:0.68rem;line-height:1.8;color:var(--text);}
+.ai-result-box pre{font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:rgba(57,255,20,0.85);background:rgba(57,255,20,0.04);padding:0.5rem;border-radius:4px;overflow-x:auto;white-space:pre-wrap;margin-top:0.5rem;}
+.ai-stream-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ai2);animation:aiPulse 1s infinite;}
+
+/* AI AGENT PANEL (right pane) */
+.agent-pane{display:flex;flex-direction:column;background:var(--bg2);}
+.agent-inner{flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:0.75rem;}
+.agent-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:0.75rem;text-align:center;padding:2rem;}
+.agent-empty-icon{font-size:2.5rem;opacity:0.15;font-family:'Orbitron',sans-serif;color:var(--ai2);}
+.agent-empty-title{font-size:0.8rem;color:var(--muted);}
+.agent-empty-hint{font-size:0.65rem;color:rgba(90,122,154,0.6);max-width:260px;line-height:1.8;}
+.agent-msg{border-radius:8px;padding:0.75rem 1rem;font-size:0.7rem;line-height:1.8;}
+.agent-msg.user{background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.12);color:var(--cyan);text-align:right;margin-left:1.5rem;}
+.agent-msg.ai{background:var(--ai-bg);border:1px solid var(--ai-border);color:var(--text);margin-right:1.5rem;}
+.agent-msg.ai strong{color:var(--ai2);}
+.agent-msg.ai code{font-family:'JetBrains Mono',monospace;font-size:0.65rem;background:rgba(0,0,0,0.3);padding:1px 5px;border-radius:3px;color:var(--green);}
+.agent-msg.system{background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.04);color:var(--muted);font-size:0.62rem;text-align:center;}
+.agent-msg pre{font-family:'JetBrains Mono',monospace;font-size:0.62rem;background:rgba(0,0,0,0.4);padding:0.5rem;border-radius:4px;overflow-x:auto;white-space:pre-wrap;margin-top:0.5rem;color:var(--green);}
+
+/* CHAT INPUT */
+.agent-input-area{padding:0.75rem 1rem;border-top:1px solid var(--border);background:var(--bg3);flex-shrink:0;}
+.agent-quick-btns{display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.6rem;}
+.quick-btn{font-size:0.55rem;padding:2px 8px;border-radius:12px;border:1px solid var(--ai-border);background:var(--ai-bg);color:var(--ai2);cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all 0.15s;letter-spacing:0.3px;}
+.quick-btn:hover{background:rgba(124,92,252,0.18);}
+.chat-row{display:flex;gap:0.5rem;}
+.chat-input{flex:1;background:rgba(0,0,0,0.3);border:1px solid var(--ai-border);border-radius:5px;padding:0.5rem 0.75rem;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:0.7rem;outline:none;transition:border-color 0.2s;}
+.chat-input:focus{border-color:var(--ai2);}
+.chat-input::placeholder{color:var(--muted);}
+.chat-send{padding:0.5rem 0.85rem;border-radius:5px;border:none;background:var(--ai);color:#fff;font-family:'JetBrains Mono',monospace;font-size:0.65rem;cursor:pointer;transition:all 0.2s;letter-spacing:1px;text-transform:uppercase;}
+.chat-send:hover{background:#9d7dfd;}
+.chat-send:disabled{opacity:0.4;cursor:not-allowed;}
+
+/* REWRITE PANEL */
+.rewrite-panel{display:none;flex-direction:column;height:100%;}
+.rewrite-panel.show{display:flex;}
+.rewrite-code{flex:1;overflow-y:auto;padding:1rem;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--green);background:rgba(57,255,20,0.02);line-height:1.7;white-space:pre-wrap;}
+.rewrite-actions{padding:0.6rem 1rem;border-top:1px solid var(--border);background:var(--bg3);display:flex;gap:0.5rem;flex-shrink:0;}
 
 /* EMPTY STATE */
 .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:1rem;padding:2rem;text-align:center;}
@@ -127,51 +205,32 @@ header{background:rgba(3,8,16,0.95);border-bottom:1px solid var(--border);paddin
 .empty-title{font-size:0.85rem;color:var(--muted);}
 .empty-hint{font-size:0.7rem;color:rgba(90,122,154,0.6);max-width:300px;line-height:1.8;}
 
-/* LANG SELECTOR */
-.lang-select{background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:0.65rem;outline:none;cursor:pointer;}
+/* API KEY MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:500;display:none;align-items:center;justify-content:center;}
+.modal-overlay.show{display:flex;}
+.modal{background:var(--bg3);border:1px solid var(--ai-border);border-radius:12px;padding:2rem;max-width:420px;width:90%;}
+.modal-title{font-family:'Orbitron',sans-serif;font-size:1rem;color:var(--ai2);margin-bottom:0.5rem;}
+.modal-sub{font-size:0.7rem;color:var(--muted);line-height:1.8;margin-bottom:1.25rem;}
+.modal-input{width:100%;background:rgba(0,0,0,0.4);border:1px solid var(--ai-border);border-radius:5px;padding:0.6rem 0.9rem;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:0.72rem;outline:none;margin-bottom:0.75rem;}
+.modal-input:focus{border-color:var(--ai2);}
+.modal-note{font-size:0.62rem;color:var(--muted);line-height:1.7;margin-bottom:1.25rem;}
+.modal-note a{color:var(--cyan);}
+.modal-actions{display:flex;gap:0.5rem;}
+.modal-btn{flex:1;padding:0.6rem;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:0.65rem;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:none;}
+.modal-btn.primary{background:var(--ai);color:#fff;}
+.modal-btn.primary:hover{background:#9d7dfd;}
+.modal-btn.cancel{background:rgba(255,255,255,0.05);color:var(--muted);border:1px solid var(--border);}
 
-/* GRID BG */
-body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,229,255,0.018) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,0.018) 1px,transparent 1px);background-size:50px 50px;pointer-events:none;z-index:0;}
-.app{position:relative;z-index:1;}
-
-@media(max-width:900px){
-  .workspace{grid-template-columns:1fr;grid-template-rows:1fr 1fr;}
-  .pane-left{border-right:none;border-bottom:1px solid var(--border);}
+@media(max-width:1100px){
+  .workspace{grid-template-columns:1fr 1fr;grid-template-rows:1fr auto;}
+  .pane-mid{grid-column:1;grid-row:1;}
+  .pane-left{grid-column:2;grid-row:1;}
+  .agent-pane{grid-column:1/-1;grid-row:2;height:320px;border-top:1px solid var(--border);}
 }
-
-/* DRAG DROP */
-.drop-overlay{position:absolute;inset:0;background:rgba(0,229,255,0.06);border:2px dashed var(--cyan);border-radius:0;display:none;align-items:center;justify-content:center;z-index:20;flex-direction:column;gap:0.5rem;}
-.drop-overlay.active{display:flex;}
-.drop-text{font-size:0.8rem;color:var(--cyan);letter-spacing:1px;}
-.drop-sub{font-size:0.62rem;color:var(--muted);}
-
-/* FILTER BUTTONS */
-.filter-bar{display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;padding:0.5rem 1rem;border-bottom:1px solid var(--border);background:var(--bg3);flex-shrink:0;}
-.filt-btn{font-size:0.58rem;letter-spacing:1px;text-transform:uppercase;padding:3px 9px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all 0.15s;font-family:'JetBrains Mono',monospace;}
-.filt-btn:hover{color:var(--text);border-color:rgba(255,255,255,0.2);}
-.filt-btn.active{color:#000;font-weight:500;}
-.filt-btn.all.active{background:var(--cyan);border-color:var(--cyan);}
-.filt-btn.critical.active{background:var(--red);border-color:var(--red);}
-.filt-btn.high.active{background:var(--orange);border-color:var(--orange);}
-.filt-btn.medium.active{background:var(--gold);border-color:var(--gold);}
-.filt-btn.low.active{background:var(--green);border-color:var(--green);}
-.export-btn{margin-left:auto;font-size:0.58rem;letter-spacing:1px;padding:3px 9px;border-radius:3px;border:1px solid rgba(245,197,24,0.3);background:rgba(245,197,24,0.06);color:var(--gold);cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all 0.15s;}
-.export-btn:hover{background:rgba(245,197,24,0.14);}
-
-/* COPY FIX BUTTON */
-.copy-fix-btn{float:right;font-size:0.55rem;padding:2px 7px;border-radius:3px;border:1px solid rgba(57,255,20,0.3);background:rgba(57,255,20,0.06);color:var(--green);cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all 0.15s;margin-left:8px;}
-.copy-fix-btn:hover{background:rgba(57,255,20,0.15);}
-.copy-fix-btn.copied{border-color:var(--cyan);color:var(--cyan);background:rgba(0,229,255,0.08);}
-
-/* LIVE SCAN DOT */
-.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;display:none;}
-.live-dot.active{display:block;animation:livePulse 1.4s infinite;}
-@keyframes livePulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
-
-/* SHORTCUT LEGEND */
-.shortcut-legend{padding:0.45rem 1.25rem;border-top:1px solid rgba(255,255,255,0.04);background:rgba(0,0,0,0.2);display:flex;gap:1.25rem;flex-wrap:wrap;flex-shrink:0;}
-.sc-item{display:flex;align-items:center;gap:5px;font-size:0.56rem;color:var(--muted);}
-.sc-key{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:3px;padding:1px 5px;color:rgba(200,216,232,0.6);font-family:'JetBrains Mono',monospace;font-size:0.55rem;}
+@media(max-width:700px){
+  .workspace{grid-template-columns:1fr;}
+  .pane-left,.pane-mid,.agent-pane{grid-column:1;}
+}
 </style>
 </head>
 <body>
@@ -179,14 +238,14 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 <header>
   <div class="header-inner">
     <div>
-      <div class="brand">Quantum<span>Scan</span></div>
-      <div class="brand-sub">Code Quantum Vulnerability Scanner</div>
+      <div class="brand">Quantum<span>Scan</span> <span style="color:var(--ai2);font-size:0.7rem;letter-spacing:1px;">+AI</span></div>
+      <div class="brand-sub">PQC Migration Agent — NIST FIPS 203/204/205</div>
     </div>
     <div class="header-badges">
       <span class="hbadge cyan">HNDL Detection</span>
       <span class="hbadge gold">NIST PQC 2024</span>
       <span class="hbadge cyan">JS · Python · Java · Go · C# · Rust</span>
-      <div class="live-dot" id="liveDot" title="Live scan active"></div>
+      <span class="hbadge ai" id="aiStatusBadge" onclick="showApiModal()">AI Agent: Click to connect</span>
     </div>
   </div>
 </header>
@@ -205,37 +264,37 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
         <option value="go">Go</option>
         <option value="cs">C# / .NET</option>
         <option value="rs">Rust</option>
-        <option value="rb">Ruby</option>
-        <option value="php">PHP</option>
       </select>
       <span id="detectedLang" class="lang-badge auto">Paste code →</span>
     </div>
     <div class="editor-wrap" id="editorWrap" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
-      <div class="drop-overlay" id="dropOverlay"><div class="drop-text">Drop file here</div><div class="drop-sub">.js · .ts · .py · .java · .go · .cs · .rs · .rb · .php</div></div>
+      <div class="drop-overlay" id="dropOverlay"><div class="drop-text">Drop file here</div><div class="drop-sub">.js .ts .py .java .go .cs .rs</div></div>
       <div class="line-nums" id="lineNums">1</div>
       <textarea class="code-textarea" id="codeInput"
         placeholder="Paste your code here...
 
-Supports JavaScript, Python, Java, Go, C#, Rust, Ruby, PHP.
+QuantumScan AI will:
+  • Find every quantum-vulnerable primitive (RSA, ECDH, ECDSA, MD5, SHA-1...)
+  • Show exact line numbers + HNDL risk windows
+  • Generate context-aware PQC fixes via Claude AI
+  • Auto-rewrite the entire file with NIST PQC replacements
+  • Answer your quantum cryptography questions
 
-QuantumScan will:
-  • Find every use of RSA, ECDH, ECDSA, MD5, SHA-1
-  • Show the exact line number
-  • Explain the quantum vulnerability
-  • Calculate your HNDL risk window
-  • Show the PQC drop-in replacement"
-        oninput="onCodeInput()" spellcheck="false"></textarea>
+Load an example to see it in action →"
+        oninput="onCodeInput()" onscroll="syncLineNums(this)" spellcheck="false"></textarea>
     </div>
+    <input type="file" id="fileUploadInput" accept=".js,.ts,.py,.java,.go,.cs,.rs,.rb,.php" style="display:none" onchange="handleFileUpload(this)">
     <div class="editor-actions">
-      <button class="btn btn-scan" onclick="runScan()">⬡ Scan for Quantum Vulnerabilities</button>
+      <button class="btn btn-scan" onclick="runScan()">⬡ Scan</button>
       <button class="btn btn-example" onclick="loadExample()">Load Example</button>
+      <button class="btn" style="background:rgba(0,229,255,0.08);color:var(--cyan);border:1px solid rgba(0,229,255,0.2);" onclick="document.getElementById('fileUploadInput').click()">↑ Open File</button>
       <button class="btn btn-clear" onclick="clearCode()">Clear</button>
       <span class="char-count" id="charCount">0 lines</span>
     </div>
   </div>
 
-  <!-- RIGHT: RESULTS -->
-  <div class="pane">
+  <!-- MID: RESULTS -->
+  <div class="pane pane-mid">
     <div class="pane-header">
       <span class="pane-title">Vulnerability Report</span>
       <span id="findingCount" style="font-size:0.62rem;color:var(--muted);margin-left:auto;"></span>
@@ -252,37 +311,88 @@ QuantumScan will:
       <div class="empty-state">
         <div class="empty-icon">⬡</div>
         <div class="empty-title">No code scanned yet</div>
-        <div class="empty-hint">Paste your code on the left and click Scan. QuantumScan checks for RSA, ECDH, ECDSA, DH, MD5, SHA-1, and other quantum-vulnerable primitives with exact line numbers.</div>
+        <div class="empty-hint">Paste code or drop a file to scan for quantum vulnerabilities. Load an example to start.</div>
       </div>
     </div>
-<script>
-// ══════════════════════════════════════════
-// VULNERABILITY DATABASE
-// Each entry: pattern (regex), name, severity, hndlYears, attack, fix, diff fn
-// ══════════════════════════════════════════
-var VULN_DB = [
+  </div>
 
-  // ── JAVASCRIPT / NODE ──
+  <!-- RIGHT: AI AGENT PANEL -->
+  <div class="pane agent-pane">
+    <div class="pane-header">
+      <span class="pane-title">AI Migration Agent</span>
+      <span id="agentStatus" style="font-size:0.6rem;color:var(--muted);">Not connected</span>
+    </div>
+
+    <!-- Chat view -->
+    <div id="agentChatView" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+      <div class="agent-inner" id="agentMessages">
+        <div class="agent-empty">
+          <div class="agent-empty-icon">AI</div>
+          <div class="agent-empty-title">AI Agent ready</div>
+          <div class="agent-empty-hint">Connect your Anthropic API key to unlock context-aware PQC fixes, full code rewriting, and quantum crypto Q&A.</div>
+        </div>
+      </div>
+      <div class="agent-input-area">
+        <div class="agent-quick-btns" id="quickBtns">
+          <button class="quick-btn" onclick="quickAction('auto-fix')">Auto-fix all →</button>
+          <button class="quick-btn" onclick="quickAction('migration-report')">Migration report</button>
+          <button class="quick-btn" onclick="quickAction('explain-hndl')">Explain HNDL</button>
+          <button class="quick-btn" onclick="quickAction('y2q-estimate')">Y2Q estimate</button>
+        </div>
+        <div class="chat-row">
+          <input class="chat-input" id="chatInput" placeholder="Ask about your vulnerabilities..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}">
+          <button class="chat-send" id="chatSendBtn" onclick="sendChat()">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rewrite view -->
+    <div id="rewriteView" class="rewrite-panel">
+      <div class="pane-header" style="background:rgba(57,255,20,0.04);border-color:rgba(57,255,20,0.15);">
+        <span class="pane-title" style="color:var(--green);">AI Rewritten Code</span>
+        <span style="font-size:0.6rem;color:var(--green);margin-left:auto;">PQC Migration Complete</span>
+      </div>
+      <div class="rewrite-code" id="rewriteCode"></div>
+      <div class="rewrite-actions">
+        <button class="btn" style="background:rgba(57,255,20,0.1);color:var(--green);border:1px solid rgba(57,255,20,0.3);" onclick="copyRewrite()">Copy Fixed Code</button>
+        <button class="btn" style="background:rgba(57,255,20,0.1);color:var(--green);border:1px solid rgba(57,255,20,0.3);" onclick="downloadRewrite()">Download</button>
+        <button class="btn btn-clear" onclick="closeRewrite()">← Back to Chat</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- API KEY MODAL -->
+<div class="modal-overlay" id="apiModal">
+  <div class="modal">
+    <div class="modal-title">Connect AI Agent</div>
+    <div class="modal-sub">Enter your Anthropic API key to enable Claude-powered PQC fixes, full code rewriting, and interactive Q&A. Your key is stored in memory only.</div>
+    <input class="modal-input" type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." autocomplete="off">
+    <div class="modal-note">Get a key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>. Your key never leaves your browser — all requests go directly to the Anthropic API.</div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="hideApiModal()">Cancel</button>
+      <button class="modal-btn primary" onclick="connectApi()">Connect Agent</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// VULN DATABASE (same as original QuantumScan)
+// ═══════════════════════════════════════════════
+var VULN_DB = [
   { lang:['js','auto'], sev:'CRITICAL', name:'RSA-OAEP Key Generation',
     pattern:/generateKey\s*\(\s*\{[^}]*name\s*:\s*['"]RSA-OAEP['"]/gi,
     hndl:15, qdayRisk:'HIGH',
-    attack:"Shor's algorithm factors RSA modulus in polynomial time on a cryptographically relevant quantum computer (CRQC). RSA-OAEP keys generated today are harvestable now.",
-    fix:'Replace with ML-KEM-768 (FIPS 203) envelope encryption. Use @noble/post-quantum.',
+    attack:"Shor's algorithm factors RSA modulus in polynomial time on a CRQC. RSA-OAEP keys generated today are harvestable now (HNDL attack).",
+    fix:'Replace with ML-KEM-768 (FIPS 203) envelope encryption via @noble/post-quantum.',
     diffVuln:"const keyPair = await crypto.subtle.generateKey(\n  { name: 'RSA-OAEP', modulusLength: 2048, hash: 'SHA-256' },\n  true, ['encrypt', 'decrypt']);",
-    diffFix:"import { ml_kem768 } from '@noble/post-quantum/ml-kem';\nconst { publicKey, secretKey } = ml_kem768.keygen();\n// Quantum-safe: ML-KEM-768 (FIPS 203, ~180-bit quantum security)" },
-
-  { lang:['js','auto'], sev:'CRITICAL', name:'RSA-PKCS1-v1_5 (Legacy RSA)',
-    pattern:/RSA-PKCS1-v1_5/gi,
-    hndl:15, qdayRisk:'CRITICAL',
-    attack:'RSA-PKCS1-v1_5 is broken by Shor\'s algorithm AND has classical padding oracle vulnerabilities. Double risk.',
-    fix:'Replace with ML-KEM-768 for encryption or ML-DSA-65 for signatures.',
-    diffVuln:"{ name: 'RSA-PKCS1-v1_5', modulusLength: 2048 }",
-    diffFix:"// Use ML-KEM-768 for encryption:\nimport { ml_kem768 } from '@noble/post-quantum/ml-kem';" },
+    diffFix:"import { ml_kem768 } from '@noble/post-quantum/ml-kem';\nconst { publicKey, secretKey } = ml_kem768.keygen();\n// ML-KEM-768 (FIPS 203) — 180-bit quantum security" },
 
   { lang:['js','auto'], sev:'CRITICAL', name:'ECDH Key Agreement',
     pattern:/generateKey\s*\(\s*\{[^}]*name\s*:\s*['"]ECDH['"]/gi,
     hndl:15, qdayRisk:'HIGH',
-    attack:"Shor's algorithm also solves the elliptic curve discrete logarithm problem (ECDLP). P-256, P-384, P-521 all broken.",
+    attack:"Shor's algorithm also solves ECDLP. P-256, P-384, P-521 all broken by quantum computing.",
     fix:'Replace with ML-KEM-768 (FIPS 203) for key agreement.',
     diffVuln:"await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveKey'])",
     diffFix:"import { ml_kem768 } from '@noble/post-quantum/ml-kem';\nconst { publicKey, secretKey } = ml_kem768.keygen();" },
@@ -290,253 +400,460 @@ var VULN_DB = [
   { lang:['js','auto'], sev:'HIGH', name:'ECDSA Signature',
     pattern:/generateKey\s*\(\s*\{[^}]*name\s*:\s*['"]ECDSA['"]/gi,
     hndl:15, qdayRisk:'HIGH',
-    attack:'ECDSA signatures broken by quantum Shor\'s algorithm. Signatures on long-lived documents (certificates, contracts) are at risk.',
-    fix:'Replace with ML-DSA-65 (FIPS 204, formerly Dilithium3).',
+    attack:"ECDSA signatures broken by Shor's algorithm. Long-lived documents signed today are at risk.",
+    fix:'Replace with ML-DSA-65 (FIPS 204).',
     diffVuln:"await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify'])",
     diffFix:"import { ml_dsa65 } from '@noble/post-quantum/ml-dsa';\nconst { publicKey, secretKey } = ml_dsa65.keygen();" },
 
-  { lang:['js','auto'], sev:'MEDIUM', name:'SHA-1 Hash',
+  { lang:['js','auto'], sev:'MEDIUM', name:"SHA-1 Hash",
     pattern:/['"]SHA-1['"]/gi,
     hndl:5, qdayRisk:'MEDIUM',
-    attack:"SHA-1 is classically broken (collision attacks). Grover's algorithm provides quadratic speedup reducing effective security from 80-bit to 40-bit.",
-    fix:'Replace with SHA-256 or SHA-3 (SHAKE256). SHA-256 survives quantum (128-bit quantum security with Grover).',
+    attack:"SHA-1 classically broken (SHAttered). Grover's reduces effective security to ~40-bit quantum.",
+    fix:'Replace with SHA-256 (128-bit quantum security via Grover).',
     diffVuln:"crypto.subtle.digest('SHA-1', data)",
-    diffFix:"crypto.subtle.digest('SHA-256', data)  // 128-bit quantum security" },
+    diffFix:"crypto.subtle.digest('SHA-256', data)" },
 
-  { lang:['js','auto'], sev:'LOW', name:'AES-128-CBC',
-    pattern:/AES-CBC.*128|['"]AES-CBC['"]/gi,
-    hndl:3, qdayRisk:'LOW',
-    attack:"Grover's algorithm reduces AES-128 to 64-bit effective quantum security. Borderline. Also CBC mode has padding oracle risks.",
-    fix:'Use AES-256-GCM. 128-bit quantum security (Grover halves key size: 256÷2=128). GCM provides authenticated encryption.',
-    diffVuln:"{ name: 'AES-CBC', length: 128 }",
-    diffFix:"{ name: 'AES-GCM', length: 256 }  // 128-bit quantum-safe + AEAD" },
-
-  { lang:['js','auto'], sev:'HIGH', name:'jsonwebtoken RS256/RS512 (npm)',
-    pattern:/sign\s*\([^,]+,\s*[^,]+,\s*\{[^}]*algorithm\s*:\s*['"]RS(256|384|512)['"]/gi,
+  { lang:['js','auto'], sev:'HIGH', name:'jsonwebtoken RS256/RS512',
+    pattern:/algorithm\s*:\s*['"]RS(256|384|512)['"]/gi,
     hndl:10, qdayRisk:'HIGH',
-    attack:'RS256/RS512 JWTs use RSA signatures. Quantum computer breaks the private key and can forge any JWT.',
-    fix:'Use HS256 for short-lived tokens (symmetric, quantum-safer). For long-lived: ML-DSA signatures.',
-    diffVuln:"jwt.sign(payload, privateKey, { algorithm: 'RS256', expiresIn: '1h' })",
-    diffFix:"// Interim: HS256 with strong random secret\njwt.sign(payload, process.env.JWT_SECRET, { algorithm: 'HS256', expiresIn: '15m' })" },
-
-  { lang:['js','auto'], sev:'HIGH', name:'Node.js crypto.createSign RSA',
-    pattern:/crypto\.createSign\s*\(\s*['"]RSA-SHA/gi,
-    hndl:15, qdayRisk:'HIGH',
-    attack:'RSA-SHA signatures broken by quantum Shor\'s algorithm.',
-    fix:'Migrate to ML-DSA-65 via @noble/post-quantum.',
-    diffVuln:"const sign = crypto.createSign('RSA-SHA256');\nsign.update(data);\nconst signature = sign.sign(privateKey);",
-    diffFix:"import { ml_dsa65 } from '@noble/post-quantum/ml-dsa';\nconst sig = ml_dsa65.sign(secretKey, data);" },
+    attack:'RS256/RS512 JWTs use RSA. A quantum computer can forge any token.',
+    fix:'Use HS256 for short-lived tokens. ML-DSA for long-lived.',
+    diffVuln:"jwt.sign(payload, privateKey, { algorithm: 'RS256' })",
+    diffFix:"jwt.sign(payload, process.env.JWT_SECRET, { algorithm: 'HS256' })" },
 
   { lang:['js','auto'], sev:'HIGH', name:'Node.js crypto.generateKeyPair RSA',
     pattern:/generateKeyPair\s*\(\s*['"]rsa['"]/gi,
     hndl:15, qdayRisk:'HIGH',
-    attack:'RSA keypairs are broken by Shor\'s algorithm. HNDL: adversaries harvest traffic encrypted with this key today.',
-    fix:'Use @noble/post-quantum ml_kem768.keygen() for encryption, ml_dsa65.keygen() for signing.',
+    attack:"RSA keypairs broken by Shor's. HNDL: adversaries collect encrypted traffic today to decrypt post-CRQC.",
+    fix:'Use @noble/post-quantum ml_kem768 for encryption.',
     diffVuln:"crypto.generateKeyPair('rsa', { modulusLength: 2048 }, callback)",
     diffFix:"import { ml_kem768 } from '@noble/post-quantum/ml-kem';\nconst { publicKey, secretKey } = ml_kem768.keygen();" },
 
-  // ── PYTHON ──
-  { lang:['py','auto'], sev:'CRITICAL', name:'Python RSA Key Generation (cryptography)',
+  { lang:['py','auto'], sev:'CRITICAL', name:'Python RSA Key Generation',
     pattern:/rsa\.generate_private_key|generate_private_key\s*\(\s*public_exponent/gi,
     hndl:15, qdayRisk:'HIGH',
-    attack:'Python cryptography library RSA uses OpenSSL RSA — fully broken by Shor\'s algorithm.',
-    fix:'Use liboqs-python or pyca/cryptography ML-KEM when available. Interim: ml-kem-py.',
-    diffVuln:"from cryptography.hazmat.primitives.asymmetric import rsa\nprivate_key = rsa.generate_private_key(\n  public_exponent=65537, key_size=2048)",
-    diffFix:"import oqs\nkem = oqs.KeyEncapsulation('Kyber768')\npublic_key = kem.generate_keypair()\n# Quantum-safe ML-KEM-768" },
+    attack:"Python cryptography library RSA — broken by Shor's algorithm on a CRQC.",
+    fix:'Use liboqs-python: oqs.KeyEncapsulation("ML-KEM-768").',
+    diffVuln:"private_key = rsa.generate_private_key(\n  public_exponent=65537, key_size=2048)",
+    diffFix:"import oqs\nkem = oqs.KeyEncapsulation('ML-KEM-768')\npublic_key = kem.generate_keypair()" },
 
-  { lang:['py','auto'], sev:'CRITICAL', name:'Python ECDH / EC Key Generation',
+  { lang:['py','auto'], sev:'CRITICAL', name:'Python ECDH / EC Key',
     pattern:/ec\.generate_private_key|EllipticCurvePrivateKey/gi,
     hndl:15, qdayRisk:'HIGH',
-    attack:'ECDH and ECDSA over any named curve broken by quantum Shor\'s. P-256, P-384, secp256k1 all vulnerable.',
-    fix:'Use liboqs-python ML-KEM for key exchange, ML-DSA for signatures.',
-    diffVuln:"from cryptography.hazmat.primitives.asymmetric import ec\nprivate_key = ec.generate_private_key(ec.SECP256R1())",
-    diffFix:"import oqs\nkem = oqs.KeyEncapsulation('Kyber768')\npublic_key = kem.generate_keypair()" },
-
-  { lang:['py','auto'], sev:'HIGH', name:'Python RSA Encryption / Decryption',
-    pattern:/\.encrypt\s*\([^)]+PKCS1v15|\.encrypt\s*\([^)]+OAEP|rsa\.encrypt/gi,
-    hndl:15, qdayRisk:'HIGH',
-    attack:'RSA encryption harvested today can be decrypted with a quantum computer. HNDL applies.',
-    fix:'Replace with ML-KEM + AES-256-GCM envelope encryption.',
-    diffVuln:"ciphertext = public_key.encrypt(message, padding.OAEP(\n  mgf=padding.MGF1(hashes.SHA256()), algorithm=hashes.SHA256()))",
-    diffFix:"# Envelope: ML-KEM encapsulate + AES-256-GCM\nfrom cryptography.hazmat.primitives.ciphers.aead import AESGCM\nciphertext_kem, shared_secret = kem.encap_secret(public_key)\naes = AESGCM(shared_secret[:32])\nciphertext = aes.encrypt(os.urandom(12), message, None)" },
+    attack:"ECDH/ECDSA over P-256, P-384, secp256k1 — all broken by quantum Shor's.",
+    fix:'Use liboqs-python ML-KEM-768 for key exchange, ML-DSA-65 for signatures.',
+    diffVuln:"private_key = ec.generate_private_key(ec.SECP256R1())",
+    diffFix:"import oqs\nkem = oqs.KeyEncapsulation('ML-KEM-768')\npublic_key = kem.generate_keypair()" },
 
   { lang:['py','auto'], sev:'MEDIUM', name:'Python hashlib MD5',
     pattern:/hashlib\.md5|md5\(\)/gi,
     hndl:2, qdayRisk:'MEDIUM',
-    attack:"MD5 is classically broken (collisions). Grover's provides additional speedup. Should never be used for security purposes.",
+    attack:"MD5 classically broken. Grover's provides additional speedup.",
     fix:'Use hashlib.sha256() or hashlib.sha3_256().',
     diffVuln:"h = hashlib.md5(data).hexdigest()",
-    diffFix:"h = hashlib.sha256(data).hexdigest()  # Quantum-safe with 128-bit security" },
+    diffFix:"h = hashlib.sha256(data).hexdigest()" },
 
   { lang:['py','auto'], sev:'MEDIUM', name:'Python hashlib SHA-1',
     pattern:/hashlib\.sha1/gi,
     hndl:3, qdayRisk:'MEDIUM',
-    attack:"SHA-1 classically broken (SHAttered collision 2017). Grover's reduces to 40-bit quantum security.",
-    fix:'Replace with SHA-256 or SHA3-256.',
+    attack:"SHA-1 classically broken. Grover's reduces quantum security to ~40-bit.",
+    fix:'Replace with hashlib.sha256().',
     diffVuln:"h = hashlib.sha1(data).hexdigest()",
     diffFix:"h = hashlib.sha256(data).hexdigest()" },
 
   { lang:['py','auto'], sev:'HIGH', name:'Python PyJWT RS256/ES256',
-    pattern:/jwt\.encode\s*\([^)]*algorithm\s*=\s*['"]RS(256|384|512)|ES(256|384|512)['"]/gi,
+    pattern:/algorithm\s*=\s*['"]RS(256|384|512)/gi,
     hndl:10, qdayRisk:'HIGH',
-    attack:'RSA and EC JWT signatures quantum-vulnerable. Private key can be derived by quantum Shor.',
-    fix:'Use HS256 for short-lived tokens. ML-DSA for long-lived or high-value tokens.',
+    attack:"RSA JWT signatures quantum-vulnerable. Private key derivable by Shor's.",
+    fix:'Use HS256 short-lived tokens or ML-DSA for high-value signing.',
     diffVuln:"token = jwt.encode(payload, private_key, algorithm='RS256')",
-    diffFix:"# HS256 with strong random secret (interim)\ntoken = jwt.encode(payload, os.environ['SECRET'], algorithm='HS256')" },
+    diffFix:"token = jwt.encode(payload, os.environ['SECRET'], algorithm='HS256')" },
 
-  // ── JAVA ──
   { lang:['java','auto'], sev:'CRITICAL', name:'Java RSA KeyPairGenerator',
     pattern:/KeyPairGenerator\.getInstance\s*\(\s*['"]RSA['"]/gi,
     hndl:15, qdayRisk:'HIGH',
-    attack:'Java RSA KeyPairGenerator wraps OpenSSL/JCE RSA — broken by Shor\'s algorithm.',
-    fix:'Use BouncyCastle 1.78+ MLKEMKeyPairGenerator or await JEP PQC in JDK.',
+    attack:"Java RSA broken by Shor's. Any keypair generated today is future-harvestable.",
+    fix:'Use BouncyCastle 1.78+ MLKEMKeyPairGenerator.',
     diffVuln:'KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");\nkpg.initialize(2048);',
-    diffFix:'// BouncyCastle ML-KEM-768\nKEMGenerateParameters params = new KEMGenerateParameters(\n  new MLKEMKeyGenerationParameters(new SecureRandom(), MLKEMParameters.ml_kem_768));' },
+    diffFix:'// BouncyCastle ML-KEM-768\nMLKEMKeyPairGenerator gen = new MLKEMKeyPairGenerator();\ngen.init(new MLKEMKeyGenerationParameters(new SecureRandom(), MLKEMParameters.ml_kem_768));' },
 
   { lang:['java','auto'], sev:'CRITICAL', name:'Java EC KeyPairGenerator',
     pattern:/KeyPairGenerator\.getInstance\s*\(\s*['"]EC['"]/gi,
     hndl:15, qdayRisk:'HIGH',
-    attack:'Java EC (ECDH/ECDSA) broken by quantum Shor\'s algorithm. P-256 offers zero quantum resistance.',
+    attack:"Java EC (ECDH/ECDSA) over P-256 — zero quantum resistance.",
     fix:'Migrate to ML-KEM-768 (encryption) or ML-DSA-65 (signing) via BouncyCastle 1.78+.',
     diffVuln:'KeyPairGenerator kpg = KeyPairGenerator.getInstance("EC");\nkpg.initialize(new ECGenParameterSpec("secp256r1"));',
-    diffFix:'// BouncyCastle ML-DSA-65 for signing\nMLDSAKeyPairGenerator gen = new MLDSAKeyPairGenerator();\ngen.init(new MLDSAKeyGenerationParameters(new SecureRandom(), MLDSAParameters.ml_dsa_65));' },
+    diffFix:'MLDSAKeyPairGenerator gen = new MLDSAKeyPairGenerator();\ngen.init(new MLDSAKeyGenerationParameters(new SecureRandom(), MLDSAParameters.ml_dsa_65));' },
 
-  { lang:['java','auto'], sev:'HIGH', name:'Java MessageDigest MD5 / SHA-1',
-    pattern:/MessageDigest\.getInstance\s*\(\s*['"](?:MD5|SHA-1)['"]/gi,
-    hndl:3, qdayRisk:'MEDIUM',
-    attack:"MD5/SHA-1 classically broken. Grover's reduces SHA-1 effective quantum security to 40-bit.",
-    fix:'Use SHA-256 (SHA-3 preferred for new systems).',
-    diffVuln:'MessageDigest md = MessageDigest.getInstance("SHA-1");',
-    diffFix:'MessageDigest md = MessageDigest.getInstance("SHA-256");' },
-
-  { lang:['java','auto'], sev:'HIGH', name:'Java RSA Cipher',
-    pattern:/Cipher\.getInstance\s*\(\s*['"]RSA/gi,
-    hndl:15, qdayRisk:'HIGH',
-    attack:'Java RSA Cipher encryption vulnerable to Shor\'s algorithm.',
-    fix:'Use ML-KEM-768 for key encapsulation + AES/GCM for data encryption.',
-    diffVuln:'Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding");',
-    diffFix:'// Envelope: ML-KEM + AES-256-GCM\n// See BouncyCastle ML-KEM docs' },
-
-  // ── GO ──
   { lang:['go','auto'], sev:'CRITICAL', name:'Go crypto/rsa GenerateKey',
     pattern:/rsa\.GenerateKey|rsa\.GenerateMultiPrimeKey/gi,
     hndl:15, qdayRisk:'HIGH',
-    attack:'Go crypto/rsa uses standard RSA — broken by quantum Shor\'s algorithm.',
-    fix:'Use github.com/cloudflare/circl kyber768 or golang.org/x/crypto PQC (in progress).',
+    attack:"Go crypto/rsa — broken by quantum Shor's algorithm.",
+    fix:'Use github.com/cloudflare/circl kyber768.',
     diffVuln:'privateKey, _ := rsa.GenerateKey(rand.Reader, 2048)',
     diffFix:'import "github.com/cloudflare/circl/kem/kyber/kyber768"\nscheme := kyber768.Scheme()\npk, sk, _ := scheme.GenerateKeyPair()' },
 
   { lang:['go','auto'], sev:'CRITICAL', name:'Go crypto/elliptic ECDH',
     pattern:/elliptic\.P256|elliptic\.P384|ecdh\.P256|ecdh\.P384/gi,
     hndl:15, qdayRisk:'HIGH',
-    attack:'Go ECDH/ECDSA over P-256/P-384 broken by quantum Shor\'s algorithm. ECDLP has no quantum resistance.',
+    attack:"Go ECDH/ECDSA — ECDLP has no quantum resistance.",
     fix:'Use circl Kyber768 for key exchange.',
     diffVuln:'curve := elliptic.P256()\npriv, _ := ecdsa.GenerateKey(curve, rand.Reader)',
     diffFix:'import "github.com/cloudflare/circl/kem/kyber/kyber768"\nscheme := kyber768.Scheme()\npk, sk, _ := scheme.GenerateKeyPair()' },
 
-  { lang:['go','auto'], sev:'MEDIUM', name:'Go MD5 / SHA1 Hash',
-    pattern:/md5\.New\(\)|sha1\.New\(\)|md5\.Sum\(|sha1\.Sum\(/gi,
-    hndl:2, qdayRisk:'MEDIUM',
-    attack:"MD5/SHA1 classically broken. Grover's adds quantum speedup.",
-    fix:'Use crypto/sha256 or golang.org/x/crypto/sha3.',
-    diffVuln:'h := md5.New()\nh.Write(data)',
-    diffFix:'h := sha256.New()\nh.Write(data)' },
-
-  // ── C# ──
   { lang:['cs','auto'], sev:'CRITICAL', name:'C# RSA.Create()',
     pattern:/RSA\.Create\s*\(|new RSACryptoServiceProvider|new RSACng/gi,
     hndl:15, qdayRisk:'HIGH',
-    attack:'.NET RSA is broken by quantum Shor\'s algorithm. System.Security.Cryptography RSA wraps Windows CNG/OpenSSL.',
-    fix:'Use .NET 9 System.Security.Cryptography.MLKem (preview) or BouncyCastle.NET.',
-    diffVuln:'using var rsa = RSA.Create(2048);\nvar encrypted = rsa.Encrypt(data, RSAEncryptionPadding.OaepSHA256);',
-    diffFix:'// .NET 9+ (preview)\nusing var kem = MLKem.Create(MLKemAlgorithm.MLKem768);\nbyte[] enc;\nbyte[] ss = kem.Encapsulate(publicKey, out enc);' },
+    attack:".NET RSA broken by Shor's. System.Security.Cryptography wraps OpenSSL/CNG RSA.",
+    fix:'Use .NET 9 MLKem (preview) or BouncyCastle.NET.',
+    diffVuln:'using var rsa = RSA.Create(2048);',
+    diffFix:'// .NET 9+ preview\nusing var kem = MLKem.Create(MLKemAlgorithm.MLKem768);' },
 
   { lang:['cs','auto'], sev:'CRITICAL', name:'C# ECDiffieHellman / ECDsa',
-    pattern:/ECDiffieHellman\.Create|ECDsa\.Create|new ECDiffieHellmanCng|new ECDsaCng/gi,
+    pattern:/ECDiffieHellman\.Create|ECDsa\.Create/gi,
     hndl:15, qdayRisk:'HIGH',
-    attack:'ECDH and ECDSA in .NET broken by quantum Shor\'s algorithm. All named curves affected.',
+    attack:".NET ECDH/ECDSA broken by Shor's. All named curves affected.",
     fix:'Migrate to ML-KEM-768 via .NET 9 preview or BouncyCastle.NET.',
     diffVuln:'using var ecdh = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);',
-    diffFix:'// BouncyCastle ML-KEM\nvar kemParams = new MLKEMKeyGenerationParameters(new SecureRandom(), MLKEMParameters.ml_kem_768);' },
+    diffFix:'var kemParams = new MLKEMKeyGenerationParameters(new SecureRandom(), MLKEMParameters.ml_kem_768);' },
 
-  { lang:['cs','auto'], sev:'MEDIUM', name:'C# MD5 / SHA1',
-    pattern:/MD5\.Create\(\)|SHA1\.Create\(\)|new MD5CryptoServiceProvider|new SHA1CryptoServiceProvider/gi,
-    hndl:2, qdayRisk:'MEDIUM',
-    attack:"MD5/SHA1 classically broken. Grover's provides quantum speedup.",
-    fix:'Use SHA256.Create() or SHA3_256 (via .NET 8+).',
-    diffVuln:'using var md5 = MD5.Create();\nbyte[] hash = md5.ComputeHash(data);',
-    diffFix:'using var sha256 = SHA256.Create();\nbyte[] hash = sha256.ComputeHash(data);' },
-
-  // ── RUST ──
-  { lang:['rs','auto'], sev:'CRITICAL', name:'Rust RsaPrivateKey / RsaPublicKey',
-    pattern:/RsaPrivateKey::new|RsaPrivateKey::from|rsa::Pkcs1v15Sign|rsa::Oaep/gi,
-    hndl:15, qdayRisk:'HIGH',
-    attack:'Rust rsa crate uses standard RSA — broken by quantum Shor\'s algorithm.',
-    fix:'Use pqcrypto-kyber or ml-kem crate.',
-    diffVuln:'let priv_key = RsaPrivateKey::new(&mut rng, 2048)?;',
-    diffFix:'// pqcrypto-kyber crate\nuse pqcrypto_kyber::kyber768;\nlet (pk, sk) = kyber768::keypair();' },
-
-  { lang:['rs','auto'], sev:'MEDIUM', name:'Rust MD5 / SHA-1',
-    pattern:/Md5::new\(\)|Sha1::new\(\)|md5::compute/gi,
-    hndl:2, qdayRisk:'MEDIUM',
-    attack:"MD5/SHA-1 classically broken. Grover's provides quantum speedup.",
-    fix:'Use sha2::Sha256 or sha3::Sha3_256.',
-    diffVuln:'let mut hasher = Md5::new();\nhasher.update(data);',
-    diffFix:'use sha2::{Sha256, Digest};\nlet hash = Sha256::digest(data);' },
-
-  // ── GENERIC (multi-lang) ──
-  { lang:['auto','js','py','java','go','cs','rs','rb','php'], sev:'CRITICAL', name:'TLS 1.0 / 1.1 Configuration',
-    pattern:/TLSv1\.0|TLSv1\.1|SSLv3|ssl_protocols.*TLSv1[^\.3]/gi,
+  { lang:['auto','js','py','java','go','cs','rs'], sev:'CRITICAL', name:'TLS 1.0 / 1.1 Configuration',
+    pattern:/TLSv1\.0|TLSv1\.1|SSLv3/gi,
     hndl:10, qdayRisk:'HIGH',
-    attack:'TLS 1.0/1.1 with RSA key exchange is quantum-vulnerable AND classically deprecated (NIST 2024).',
-    fix:'Enforce TLS 1.3 minimum. Enable hybrid X25519+ML-KEM-768 when available.',
+    attack:'TLS 1.0/1.1 with RSA key exchange — quantum-vulnerable AND classically deprecated.',
+    fix:'Enforce TLS 1.3 minimum. Enable hybrid X25519+ML-KEM-768.',
     diffVuln:"ssl_protocols TLSv1 TLSv1.1;",
-    diffFix:"ssl_protocols TLSv1.3;\n# Enforce quantum-safe forward secrecy" },
+    diffFix:"ssl_protocols TLSv1.3;\n# Enable hybrid PQC when available" },
 
-  { lang:['auto','js','py','java','go','cs','rs','rb','php'], sev:'HIGH', name:'Hardcoded RSA Private Key',
+  { lang:['auto','js','py','java','go','cs','rs'], sev:'HIGH', name:'Hardcoded RSA Private Key',
     pattern:/-----BEGIN RSA PRIVATE KEY-----|-----BEGIN PRIVATE KEY-----/gi,
     hndl:15, qdayRisk:'CRITICAL',
-    attack:'Hardcoded RSA key in source code is immediately harvestable. Quantum computer breaks it retroactively.',
-    fix:'Remove from code immediately. Rotate the key. Use secrets manager.',
-    diffVuln:"const PRIVATE_KEY = '-----BEGIN RSA PRIVATE KEY-----\\n...'  // NEVER hardcode keys",
-    diffFix:"// Never hardcode keys. Use environment variables:\nconst privateKey = process.env.PRIVATE_KEY;" },
-
-  { lang:['auto','js','py','java','go','cs','rs','rb','php'], sev:'HIGH', name:'Diffie-Hellman (DH) Key Exchange',
-    pattern:/DiffieHellman|crypto\.createDiffieHellman|DHE|\"DH\"/gi,
-    hndl:15, qdayRisk:'HIGH',
-    attack:'Classical DH key exchange broken by quantum Shor\'s algorithm.',
-    fix:'Replace with ML-KEM-768 key encapsulation.',
-    diffVuln:"const dh = crypto.createDiffieHellman(2048);\ndh.generateKeys();",
-    diffFix:"import { ml_kem768 } from '@noble/post-quantum/ml-kem';\nconst { publicKey, secretKey } = ml_kem768.keygen();" },
+    attack:'Hardcoded key in source is immediately harvestable. Quantum retroactive decryption applies.',
+    fix:'Remove from code. Rotate the key. Use secrets manager.',
+    diffVuln:"const PRIVATE_KEY = '-----BEGIN RSA PRIVATE KEY-----\\n...'",
+    diffFix:"const privateKey = process.env.PRIVATE_KEY; // Never hardcode keys" },
 ];
 
-// ══ LANGUAGE DETECTION ══
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+var API_KEY = '';
+var lastFindings = [];
+var lastLang = 'auto';
+var isAiLoading = false;
+var agentMessages = [];
+
+// ═══════════════════════════════════════════════
+// API KEY MODAL
+// ═══════════════════════════════════════════════
+function showApiModal() { document.getElementById('apiModal').classList.add('show'); }
+function hideApiModal() { document.getElementById('apiModal').classList.remove('show'); }
+function connectApi() {
+  var key = document.getElementById('apiKeyInput').value.trim();
+  if (!key.startsWith('sk-')) { alert('Invalid API key. Must start with sk-'); return; }
+  API_KEY = key;
+  hideApiModal();
+  document.getElementById('aiStatusBadge').textContent = 'AI Agent: Connected';
+  document.getElementById('aiStatusBadge').classList.add('connected');
+  document.getElementById('agentStatus').textContent = 'Claude connected';
+  document.getElementById('agentStatus').style.color = 'var(--green)';
+  addAgentMessage('system', 'AI agent connected. Paste code and scan to begin, or ask me anything about post-quantum cryptography.');
+}
+
+// ═══════════════════════════════════════════════
+// ANTHROPIC API CALL (streaming)
+// ═══════════════════════════════════════════════
+async function callClaude(systemPrompt, userMessage, onChunk, onDone) {
+  if (!API_KEY) { showApiModal(); return; }
+  isAiLoading = true;
+  document.getElementById('chatSendBtn').disabled = true;
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': API_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4096,
+        stream: true,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMessage }]
+      })
+    });
+    if (!resp.ok) { var err = await resp.json(); throw new Error(err.error?.message || 'API error'); }
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    var buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      var lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (var line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        var data = line.slice(6).trim();
+        if (data === '[DONE]') continue;
+        try {
+          var parsed = JSON.parse(data);
+          if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+            onChunk(parsed.delta.text);
+          }
+        } catch(e) {}
+      }
+    }
+    if (onDone) onDone();
+  } catch(err) {
+    addAgentMessage('system', 'Error: ' + err.message);
+  } finally {
+    isAiLoading = false;
+    document.getElementById('chatSendBtn').disabled = false;
+  }
+}
+
+// ═══════════════════════════════════════════════
+// AGENT MESSAGES UI
+// ═══════════════════════════════════════════════
+function addAgentMessage(role, text, id) {
+  var container = document.getElementById('agentMessages');
+  // Remove empty state if present
+  var empty = container.querySelector('.agent-empty');
+  if (empty) empty.remove();
+  var div = document.createElement('div');
+  div.className = 'agent-msg ' + role;
+  if (id) div.id = id;
+  div.innerHTML = formatAgentText(text);
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+function formatAgentText(text) {
+  return text
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/```[\w]*\n?([\s\S]*?)```/g, '<pre>$1</pre>')
+    .replace(/\n/g, '<br>');
+}
+
+function updateAgentMessage(id, text) {
+  var el = document.getElementById(id);
+  if (el) { el.innerHTML = formatAgentText(text); el.closest('.agent-inner').scrollTop = 9999; }
+}
+
+// ═══════════════════════════════════════════════
+// QUICK ACTIONS
+// ═══════════════════════════════════════════════
+async function quickAction(type) {
+  if (!API_KEY) { showApiModal(); return; }
+  if (isAiLoading) return;
+
+  if (type === 'auto-fix') {
+    var code = document.getElementById('codeInput').value;
+    if (!code.trim()) { addAgentMessage('system', 'Paste some code first, then scan.'); return; }
+    if (!lastFindings.length) { addAgentMessage('system', 'Run a scan first so I know what to fix.'); return; }
+    addAgentMessage('user', 'Auto-fix all vulnerabilities and rewrite the entire file with NIST PQC replacements.');
+    await autoFixAll(code);
+    return;
+  }
+
+  if (type === 'migration-report') {
+    if (!lastFindings.length) { addAgentMessage('system', 'Run a scan first to generate a migration report.'); return; }
+    addAgentMessage('user', 'Generate a migration report for these findings.');
+    await generateMigrationReport();
+    return;
+  }
+
+  if (type === 'explain-hndl') {
+    addAgentMessage('user', 'Explain what HNDL means and why it matters for my codebase.');
+    var msgId = 'ai_' + Date.now();
+    var el = addAgentMessage('ai', '<span class="ai-stream-dot"></span>', msgId);
+    var full = '';
+    await callClaude(
+      'You are a quantum cryptography expert. Be concise and practical. Use markdown for formatting.',
+      'Explain Harvest Now Decrypt Later (HNDL) attacks in the context of post-quantum cryptography. Why should developers care today, even though CRQCs may not exist for years? Keep it under 200 words.',
+      (chunk) => { full += chunk; updateAgentMessage(msgId, full); },
+      null
+    );
+    return;
+  }
+
+  if (type === 'y2q-estimate') {
+    addAgentMessage('user', 'What is the current Y2Q (Years to Quantum) estimate?');
+    var msgId2 = 'ai_' + Date.now();
+    addAgentMessage('ai', '<span class="ai-stream-dot"></span>', msgId2);
+    var full2 = '';
+    await callClaude(
+      'You are a quantum cryptography expert. Be concise and cite recent sources.',
+      'What is the current expert consensus on Y2Q (Years to Quantum — time until a cryptographically relevant quantum computer breaks RSA-2048)? Mention IBM, Google, and NIST perspectives. Under 200 words.',
+      (chunk) => { full2 += chunk; updateAgentMessage(msgId2, full2); },
+      null
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════
+// CHAT
+// ═══════════════════════════════════════════════
+async function sendChat() {
+  if (!API_KEY) { showApiModal(); return; }
+  if (isAiLoading) return;
+  var input = document.getElementById('chatInput');
+  var msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  addAgentMessage('user', msg);
+
+  var context = '';
+  if (lastFindings.length) {
+    context = '\n\nCurrent scan findings (' + lastFindings.length + ' vulnerabilities in ' + lastLang + ' code):\n';
+    lastFindings.forEach(function(f) {
+      context += '- [' + f.sev + '] ' + f.name + ' at line ' + f.lineNum + ' (HNDL: ' + f.hndl + ' years)\n';
+    });
+  }
+  var code = document.getElementById('codeInput').value;
+  if (code.trim()) context += '\n\nCode being analyzed:\n```\n' + code.slice(0, 3000) + (code.length > 3000 ? '\n...[truncated]' : '') + '\n```';
+
+  var msgId = 'ai_' + Date.now();
+  addAgentMessage('ai', '<span class="ai-stream-dot"></span>', msgId);
+  var full = '';
+  await callClaude(
+    'You are an expert in post-quantum cryptography (PQC) and the NIST PQC standards (FIPS 203 ML-KEM, FIPS 204 ML-DSA, FIPS 205 SLH-DSA). You help developers migrate from quantum-vulnerable cryptography (RSA, ECDH, ECDSA) to NIST-approved post-quantum algorithms. Be concise, technical, and practical. Use code examples when helpful.' + context,
+    msg,
+    (chunk) => { full += chunk; updateAgentMessage(msgId, full); },
+    null
+  );
+}
+
+// ═══════════════════════════════════════════════
+// AI PER-FINDING FIX
+// ═══════════════════════════════════════════════
+async function aiFix(idx) {
+  if (!API_KEY) { showApiModal(); return; }
+  if (isAiLoading) return;
+  var f = lastFindings[idx];
+  if (!f) return;
+  var btn = document.getElementById('aiFixBtn_' + idx);
+  if (btn) { btn.disabled = true; btn.textContent = 'Analyzing...'; }
+  var code = document.getElementById('codeInput').value;
+  var lines = code.split('\n');
+  var start = Math.max(0, f.lineNum - 5);
+  var end = Math.min(lines.length, f.lineNum + 10);
+  var snippet = lines.slice(start, end).join('\n');
+
+  var resultBox = document.getElementById('aiResult_' + idx);
+  if (resultBox) { resultBox.style.display = 'block'; resultBox.innerHTML = '<span class="ai-stream-dot"></span> Generating context-aware fix...'; }
+
+  var full = '';
+  await callClaude(
+    'You are a PQC migration expert. Generate precise, drop-in code replacements for NIST PQC standards. Be concise. Show only the fixed code snippet, not explanation prose unless critical.',
+    'Language: ' + lastLang + '\nVulnerability: ' + f.name + ' [' + f.sev + ']\nLine ' + f.lineNum + ' in context:\n```\n' + snippet + '\n```\n\nGenerate the context-aware PQC replacement for line ' + f.lineNum + '. Use the exact variable names and style from the surrounding code. Reference: FIPS 203 (ML-KEM-768) for key encapsulation, FIPS 204 (ML-DSA-65) for signatures.',
+    (chunk) => { full += chunk; if (resultBox) resultBox.innerHTML = formatAgentText(full); },
+    function() { if (btn) { btn.disabled = false; btn.textContent = 'AI Fix'; } }
+  );
+}
+
+// ═══════════════════════════════════════════════
+// AUTO-FIX ALL
+// ═══════════════════════════════════════════════
+async function autoFixAll(code) {
+  var msgId = 'ai_' + Date.now();
+  addAgentMessage('ai', '<span class="ai-stream-dot"></span> Rewriting code with NIST PQC replacements...', msgId);
+  var summary = lastFindings.map(function(f) {
+    return '- Line ' + f.lineNum + ': [' + f.sev + '] ' + f.name + '\n  Fix: ' + f.fix;
+  }).join('\n');
+
+  var rewriteEl = document.getElementById('rewriteCode');
+  var full = '';
+  await callClaude(
+    'You are a PQC migration agent. Rewrite code replacing all quantum-vulnerable primitives with NIST PQC standards. Output ONLY the complete rewritten code — no explanation, no markdown code fences, no preamble. Preserve all logic, variable names, and structure. Add inline comments explaining each PQC change.',
+    'Language: ' + lastLang + '\n\nVulnerabilities found:\n' + summary + '\n\nOriginal code to rewrite:\n' + code,
+    function(chunk) {
+      full += chunk;
+      rewriteEl.textContent = full;
+    },
+    function() {
+      updateAgentMessage(msgId, 'Code rewritten with ' + lastFindings.length + ' PQC fixes applied. See the rewritten code panel →');
+      showRewriteView();
+    }
+  );
+}
+
+// ═══════════════════════════════════════════════
+// MIGRATION REPORT
+// ═══════════════════════════════════════════════
+async function generateMigrationReport() {
+  var msgId = 'ai_' + Date.now();
+  addAgentMessage('ai', '<span class="ai-stream-dot"></span> Generating migration report...', msgId);
+  var summary = lastFindings.map(function(f) {
+    return '- Line ' + f.lineNum + ': [' + f.sev + '] ' + f.name + ' | HNDL: ' + f.hndl + 'yr | Fix: ' + f.fix;
+  }).join('\n');
+
+  var full = '';
+  await callClaude(
+    'You are a quantum cryptography migration architect. Write a concise, board-ready migration report.',
+    'Language: ' + lastLang + '\nFindings:\n' + summary + '\n\nWrite a migration report with: 1) Executive Summary (2-3 sentences), 2) Risk Assessment (table of findings by severity), 3) Migration Priority (which to fix first and why), 4) Recommended PQC algorithms (ML-KEM-768, ML-DSA-65, SLH-DSA), 5) Estimated migration effort. Use markdown.',
+    function(chunk) { full += chunk; updateAgentMessage(msgId, full); },
+    null
+  );
+}
+
+// ═══════════════════════════════════════════════
+// REWRITE VIEW
+// ═══════════════════════════════════════════════
+function showRewriteView() {
+  document.getElementById('agentChatView').style.display = 'none';
+  document.getElementById('rewriteView').classList.add('show');
+}
+function closeRewrite() {
+  document.getElementById('rewriteView').classList.remove('show');
+  document.getElementById('agentChatView').style.display = 'flex';
+}
+function copyRewrite() {
+  var text = document.getElementById('rewriteCode').textContent;
+  navigator.clipboard.writeText(text);
+}
+function downloadRewrite() {
+  var text = document.getElementById('rewriteCode').textContent;
+  var ext = { js:'js', py:'py', java:'java', go:'go', cs:'cs', rs:'rs' }[lastLang] || 'txt';
+  var blob = new Blob([text], { type: 'text/plain' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'pqc-migrated.' + ext;
+  a.click();
+}
+
+// ═══════════════════════════════════════════════
+// SCAN ENGINE
+// ═══════════════════════════════════════════════
 function detectLang(code) {
   if (/import\s+\w+\s+from|require\s*\(|const\s+\w+\s*=|async\s+function|=>\s*\{/.test(code)) return 'js';
   if (/def\s+\w+\s*\(|import\s+\w+|print\s*\(|hashlib\.|cryptography\./.test(code)) return 'py';
   if (/public\s+class|import\s+java\.|KeyPairGenerator|MessageDigest/.test(code)) return 'java';
   if (/func\s+\w+\s*\(|package\s+main|import\s*\(|:=/.test(code)) return 'go';
-  if (/using\s+System|namespace\s+\w+|public\s+static|var\s+\w+\s*=\s*new/.test(code)) return 'cs';
+  if (/using\s+System|namespace\s+\w+|public\s+static/.test(code)) return 'cs';
   if (/fn\s+\w+\s*\(|let\s+mut|use\s+\w+::|impl\s+\w+/.test(code)) return 'rs';
   return 'auto';
 }
-var LANG_NAMES = {js:'JavaScript',py:'Python',java:'Java',go:'Go',cs:'C# / .NET',rs:'Rust',rb:'Ruby',php:'PHP',auto:'Auto'};
-var LANG_CLASSES = {js:'js',py:'py',java:'java',go:'go',cs:'cs',rs:'rs',rb:'auto',php:'auto',auto:'auto'};
+var LANG_NAMES = {js:'JavaScript',py:'Python',java:'Java',go:'Go',cs:'C#/.NET',rs:'Rust',auto:'Auto'};
+var LANG_CLASSES = {js:'js',py:'py',java:'java',go:'go',cs:'cs',rs:'rs',auto:'auto'};
 
-// ══ LINE NUMBER TRACKING ══
 function onCodeInput() {
   var ta = document.getElementById('codeInput');
   var lines = ta.value.split('\n');
   var lnDiv = document.getElementById('lineNums');
-  lnDiv.textContent = lines.map((_,i) => i+1).join('\n');
+  lnDiv.textContent = lines.map((_,i)=>i+1).join('\n');
   document.getElementById('charCount').textContent = lines.length + ' lines';
-  // Auto detect
   var sel = document.getElementById('langSelect').value;
   if (sel === 'auto') {
-    var detected = detectLang(ta.value);
+    var det = detectLang(ta.value);
     var badge = document.getElementById('detectedLang');
-    badge.textContent = detected === 'auto' ? 'Paste code →' : LANG_NAMES[detected] + ' detected';
-    badge.className = 'lang-badge ' + LANG_CLASSES[detected];
+    badge.textContent = det === 'auto' ? 'Paste code →' : LANG_NAMES[det] + ' detected';
+    badge.className = 'lang-badge ' + LANG_CLASSES[det];
   }
 }
 function onLangChange() {
@@ -546,179 +863,174 @@ function onLangChange() {
   badge.className = 'lang-badge ' + (LANG_CLASSES[val] || 'auto');
 }
 
-// ══ SCAN ENGINE ══
 function runScan() {
   var code = document.getElementById('codeInput').value;
   if (!code.trim()) { alert('Paste some code first.'); return; }
   var langSel = document.getElementById('langSelect').value;
   var lang = langSel === 'auto' ? detectLang(code) : langSel;
+  lastLang = lang;
   var lines = code.split('\n');
   var findings = [];
-
   VULN_DB.forEach(function(vuln) {
     if (!vuln.lang.includes(lang) && !vuln.lang.includes('auto')) return;
     var regex = new RegExp(vuln.pattern.source, 'gi');
     var match;
     while ((match = regex.exec(code)) !== null) {
-      // Find line number
       var before = code.substring(0, match.index);
       var lineNum = before.split('\n').length;
-      var lineText = lines[lineNum - 1] || '';
-      // Avoid duplicate same-line same-vuln
+      var lineText = lines[lineNum-1] || '';
       if (findings.some(f => f.lineNum === lineNum && f.name === vuln.name)) continue;
-      findings.push({
-        ...vuln,
-        lineNum: lineNum,
-        lineText: lineText.trim(),
-        matchText: match[0]
-      });
+      findings.push({ ...vuln, lineNum, lineText: lineText.trim(), matchText: match[0] });
     }
   });
-
-  // Sort by severity then line number
-  var sevOrder = {CRITICAL:0, HIGH:1, MEDIUM:2, LOW:3, INFO:4};
-  findings.sort((a,b) => (sevOrder[a.sev]||5) - (sevOrder[b.sev]||5) || a.lineNum - b.lineNum);
-
-  window._lastFindings = findings;
-  window._lastLang = lang;
+  var sevOrder = {CRITICAL:0,HIGH:1,MEDIUM:2,LOW:3};
+  findings.sort((a,b) => (sevOrder[a.sev]||5)-(sevOrder[b.sev]||5) || a.lineNum-b.lineNum);
+  lastFindings = findings;
   renderResults(findings, lang, lines.length);
   updateLineNums(findings, lines.length);
   document.getElementById('filterBar').style.display = findings.length > 0 ? 'flex' : 'none';
+  // Notify agent
+  if (API_KEY && findings.length) {
+    var cont = document.getElementById('agentMessages');
+    var empty = cont.querySelector('.agent-empty');
+    if (empty) empty.remove();
+    addAgentMessage('system', 'Scan complete: ' + findings.length + ' findings in ' + LANG_NAMES[lang] + '. Use quick actions above or ask me anything.');
+  }
 }
 
 function updateLineNums(findings, totalLines) {
-  var vulnLines = new Set(findings.map(f => f.lineNum));
+  var vulnLines = new Set(findings.map(f=>f.lineNum));
   var lnDiv = document.getElementById('lineNums');
   var html = '';
-  for (var i = 1; i <= totalLines; i++) {
-    var cls = vulnLines.has(i) ? 'ln-vuln' : '';
-    html += '<div class="' + cls + '">' + i + '</div>';
+  for (var i=1;i<=totalLines;i++) {
+    html += '<div class="'+(vulnLines.has(i)?'ln-vuln':'')+'">'+i+'</div>';
   }
   lnDiv.innerHTML = html;
 }
 
 function renderResults(findings, lang, lineCount) {
   var pane = document.getElementById('resultsPane');
-  if (findings.length === 0) {
-    pane.innerHTML = '<div class="empty-state"><div class="empty-icon" style="opacity:0.5;color:var(--green);">✓</div><div class="empty-title" style="color:var(--green);">No quantum vulnerabilities detected</div><div class="empty-hint">Your code does not appear to use any of the 25+ quantum-vulnerable patterns QuantumScan checks. Note: this is a pattern scanner — a full security audit may reveal additional issues.</div></div>';
+  if (!findings.length) {
+    pane.innerHTML = '<div class="empty-state"><div class="empty-icon" style="opacity:0.5;color:var(--green)">✓</div><div class="empty-title" style="color:var(--green)">No quantum vulnerabilities detected</div><div class="empty-hint">No quantum-vulnerable patterns found. Consider running a deeper AI-powered analysis via the agent panel.</div></div>';
     document.getElementById('findingCount').textContent = '';
     return;
   }
+  var sevScore={CRITICAL:100,HIGH:75,MEDIUM:40,LOW:15};
+  var rawScore = Math.min(100, findings.reduce((s,f)=>s+(sevScore[f.sev]||10),0)/findings.length);
+  var hndlMax = Math.max(...findings.map(f=>f.hndl||0));
+  var critCount=findings.filter(f=>f.sev==='CRITICAL').length;
+  var highCount=findings.filter(f=>f.sev==='HIGH').length;
+  var medCount=findings.filter(f=>f.sev==='MEDIUM').length;
+  var lowCount=findings.filter(f=>f.sev==='LOW').length;
+  var riskColor = rawScore>=70?'var(--red)':rawScore>=40?'var(--gold)':'var(--green)';
+  var riskLabel = rawScore>=70?'CRITICAL RISK':rawScore>=40?'HIGH RISK':'MODERATE RISK';
 
-  // Score
-  var sevScore = {CRITICAL:100, HIGH:75, MEDIUM:40, LOW:15};
-  var rawScore = Math.min(100, findings.reduce((s,f) => s + (sevScore[f.sev]||10), 0) / findings.length);
-  var hndlMax = Math.max(...findings.map(f => f.hndl || 0));
-  var critCount = findings.filter(f => f.sev==='CRITICAL').length;
-  var highCount = findings.filter(f => f.sev==='HIGH').length;
-  var medCount  = findings.filter(f => f.sev==='MEDIUM').length;
-  var lowCount  = findings.filter(f => f.sev==='LOW').length;
-
-  var riskColor = rawScore >= 70 ? 'var(--red)' : rawScore >= 40 ? 'var(--gold)' : 'var(--green)';
-  var riskLabel = rawScore >= 70 ? 'CRITICAL RISK' : rawScore >= 40 ? 'HIGH RISK' : 'MODERATE RISK';
-
-  var html = '<div class="score-card">';
-  html += '<div class="score-ring"><canvas id="scoreCanvas" width="80" height="80"></canvas>';
+  var html = '<div class="score-card"><div class="score-ring"><canvas id="scoreCanvas" width="80" height="80"></canvas>';
   html += '<div class="score-number"><div class="score-num" style="color:'+riskColor+'">'+Math.round(rawScore)+'</div><div class="score-label">Risk</div></div></div>';
-  html += '<div class="score-details">';
-  html += '<div class="score-title" style="color:'+riskColor+'">'+riskLabel+'</div>';
-  html += '<div class="score-summary">'+findings.length+' finding'+(findings.length>1?'s':'')+' across '+lineCount+' lines of '+LANG_NAMES[lang]+'. ';
-  html += 'Longest HNDL window: <b style="color:var(--gold);">'+hndlMax+' years</b> — adversaries collecting your traffic today could decrypt it in '+hndlMax+' years.</div>';
+  html += '<div class="score-details"><div class="score-title" style="color:'+riskColor+'">'+riskLabel+'</div>';
+  html += '<div class="score-summary">'+findings.length+' finding'+(findings.length>1?'s':'')+' in '+lineCount+' lines of '+LANG_NAMES[lang]+'. HNDL window: <b style="color:var(--gold)">'+hndlMax+' years</b>.</div>';
   html += '<div class="severity-pills">';
-  if(critCount) html += '<span class="spill critical">'+critCount+' Critical</span>';
-  if(highCount) html += '<span class="spill high">'+highCount+' High</span>';
-  if(medCount)  html += '<span class="spill medium">'+medCount+' Medium</span>';
-  if(lowCount)  html += '<span class="spill low">'+lowCount+' Low</span>';
-  html += '</div></div></div>';
+  if(critCount) html+='<span class="spill critical">'+critCount+' Critical</span>';
+  if(highCount) html+='<span class="spill high">'+highCount+' High</span>';
+  if(medCount)  html+='<span class="spill medium">'+medCount+' Medium</span>';
+  if(lowCount)  html+='<span class="spill low">'+lowCount+' Low</span>';
+  html+='</div></div></div>';
 
-  findings.forEach(function(f, i) {
-    var sev = f.sev.toLowerCase();
-    var hndlColor = f.hndl >= 10 ? 'var(--red)' : f.hndl >= 5 ? 'var(--gold)' : 'var(--green)';
-    html += '<div class="finding '+sev+'" id="finding_'+i+'">';
-    html += '<div class="finding-header" onclick="toggleFinding('+i+')">';
-    html += '<span class="finding-sev '+sev+'">'+f.sev+'</span>';
-    html += '<div class="finding-main">';
-    html += '<div class="finding-algo">'+f.name+'</div>';
-    html += '<div class="finding-line">Line <span>'+f.lineNum+'</span> &nbsp;·&nbsp; <code style="color:var(--gold);font-size:0.62rem;">'+escHtml(f.lineText.slice(0,70))+(f.lineText.length>70?'...':'')+'</code></div>';
-    html += '</div>';
-    html += '<span class="finding-chevron" id="chev_'+i+'">▶</span></div>';
-    html += '<div class="finding-body" id="fbody_'+i+'">';
-    // HNDL stats
-    html += '<div class="finding-hndl">';
-    html += '<div class="hndl-stat"><div class="hndl-val" style="color:'+hndlColor+'">'+f.hndl+'yr</div><div class="hndl-key">HNDL window</div></div>';
-    html += '<div class="hndl-stat"><div class="hndl-val" style="color:var(--red)">'+f.qdayRisk+'</div><div class="hndl-key">Q-Day Risk</div></div>';
-    html += '<div class="hndl-stat"><div class="hndl-val" style="font-size:0.75rem;color:var(--muted)">~'+(2026+f.hndl)+'</div><div class="hndl-key">Data exposed until</div></div>';
-    html += '</div>';
-    // Attack description
-    html += '<div class="finding-issue"><b style="color:var(--red);">Attack:</b> '+f.attack+'</div>';
-    html += '<div class="finding-issue" style="margin-bottom:0.6rem;"><b style="color:var(--green);">Fix:</b> '+f.fix+'</div>';
-    // Copy fix button + Diff
-    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">';
-    html += '<span style="font-size:0.58rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);">Diff — vulnerable → PQC fix</span>';
-    html += '<button class="copy-fix-btn" id="cpbtn_'+i+'" onclick="copyFix('+i+',event)">Copy fix</button>';
-    html += '</div>';
-    html += '<div class="code-diff" id="diff_'+i+'">';
-    html += '<div class="diff-row ctx"><span class="diff-marker"> </span><span class="diff-ln">'+(f.lineNum-1>0?f.lineNum-1:'')+'</span><span style="opacity:0.4;">...</span></div>';
-    f.diffVuln.split('\n').forEach(function(line, di) {
-      html += '<div class="diff-row vuln"><span class="diff-marker">−</span><span class="diff-ln">'+(f.lineNum+di)+'</span>'+escHtml(line)+'</div>';
-    });
-    f.diffFix.split('\n').forEach(function(line, di) {
-      html += '<div class="diff-row fix"><span class="diff-marker">+</span><span class="diff-ln"> </span>'+escHtml(line)+'</div>';
-    });
-    html += '<div class="diff-row ctx"><span class="diff-marker"> </span><span class="diff-ln"></span><span style="opacity:0.4;">...</span></div>';
-    html += '</div>';
-    html += '</div></div>'; // close finding-body + finding
+  // AI banner
+  html += '<div class="ai-banner show"><div class="ai-banner-title">AI Migration Agent</div><div class="ai-actions">';
+  html += '<button class="ai-btn primary" onclick="quickAction(\'auto-fix\')">Auto-fix all '+findings.length+' vulnerabilities</button>';
+  html += '<button class="ai-btn" onclick="quickAction(\'migration-report\')">Generate report</button>';
+  html += '</div></div>';
+
+  findings.forEach(function(f,i) {
+    var sev=f.sev.toLowerCase();
+    var hndlColor=f.hndl>=10?'var(--red)':f.hndl>=5?'var(--gold)':'var(--green)';
+    html+='<div class="finding '+sev+'" id="finding_'+i+'">';
+    html+='<div class="finding-header" onclick="toggleFinding('+i+')">';
+    html+='<span class="finding-sev '+sev+'">'+f.sev+'</span>';
+    html+='<div class="finding-main"><div class="finding-algo">'+f.name+'</div>';
+    html+='<div class="finding-line">Line <span>'+f.lineNum+'</span> &nbsp;·&nbsp; <code style="color:var(--gold);font-size:0.62rem;">'+escHtml(f.lineText.slice(0,60))+(f.lineText.length>60?'...':'')+'</code></div></div>';
+    html+='<span class="finding-chevron" id="chev_'+i+'">▶</span></div>';
+    html+='<div class="finding-body" id="fbody_'+i+'">';
+    html+='<div class="finding-hndl">';
+    html+='<div class="hndl-stat"><div class="hndl-val" style="color:'+hndlColor+'">'+f.hndl+'yr</div><div class="hndl-key">HNDL window</div></div>';
+    html+='<div class="hndl-stat"><div class="hndl-val" style="color:var(--red)">'+f.qdayRisk+'</div><div class="hndl-key">Q-Day Risk</div></div>';
+    html+='<div class="hndl-stat"><div class="hndl-val" style="font-size:0.75rem;color:var(--muted)">~'+(2026+f.hndl)+'</div><div class="hndl-key">Exposed until</div></div>';
+    html+='</div>';
+    html+='<div class="finding-issue"><b style="color:var(--red)">Attack:</b> '+f.attack+'</div>';
+    html+='<div class="finding-issue"><b style="color:var(--green)">Fix:</b> '+f.fix+'</div>';
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">';
+    html+='<span style="font-size:0.58rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">Diff</span>';
+    html+='<button class="copy-fix-btn" id="cpbtn_'+i+'" onclick="copyFix('+i+',event)">Copy fix</button></div>';
+    html+='<div class="code-diff">';
+    f.diffVuln.split('\n').forEach(function(line,di){html+='<div class="diff-row vuln"><span class="diff-marker">−</span><span class="diff-ln">'+(f.lineNum+di)+'</span>'+escHtml(line)+'</div>';});
+    f.diffFix.split('\n').forEach(function(line){html+='<div class="diff-row fix"><span class="diff-marker">+</span><span class="diff-ln"> </span>'+escHtml(line)+'</div>';});
+    html+='</div>';
+    // AI Fix section
+    html+='<div class="ai-fix-section"><button class="ai-fix-btn-sm" id="aiFixBtn_'+i+'" onclick="aiFix('+i+')">AI: Context-aware fix for this line →</button>';
+    html+='<div class="ai-result-box" id="aiResult_'+i+'" style="display:none;"></div></div>';
+    html+='</div></div>';
   });
 
   pane.innerHTML = html;
-  document.getElementById('findingCount').textContent = findings.length + ' finding' + (findings.length > 1 ? 's' : '');
-
-  // Draw score ring
+  document.getElementById('findingCount').textContent = findings.length+' finding'+(findings.length>1?'s':'');
   requestAnimationFrame(function() {
-    var c = document.getElementById('scoreCanvas');
-    if (!c) return;
-    var ctx = c.getContext('2d');
+    var c=document.getElementById('scoreCanvas');
+    if(!c)return;
+    var ctx=c.getContext('2d');
     ctx.clearRect(0,0,80,80);
-    ctx.beginPath(); ctx.arc(40,40,30,0,Math.PI*2);
-    ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=8; ctx.stroke();
-    ctx.beginPath(); ctx.arc(40,40,30,-Math.PI/2,-Math.PI/2+(rawScore/100)*Math.PI*2);
+    ctx.beginPath();ctx.arc(40,40,30,0,Math.PI*2);
+    ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=8;ctx.stroke();
+    ctx.beginPath();ctx.arc(40,40,30,-Math.PI/2,-Math.PI/2+(rawScore/100)*Math.PI*2);
     ctx.strokeStyle=rawScore>=70?'#ff5f5f':rawScore>=40?'#f5c518':'#39ff14';
-    ctx.lineWidth=8; ctx.stroke();
+    ctx.lineWidth=8;ctx.stroke();
   });
 }
 
 function toggleFinding(i) {
-  var body = document.getElementById('fbody_'+i);
-  var chev = document.getElementById('chev_'+i);
-  var isOpen = body.classList.contains('open');
-  body.classList.toggle('open', !isOpen);
-  chev.classList.toggle('open', !isOpen);
+  var body=document.getElementById('fbody_'+i);
+  var chev=document.getElementById('chev_'+i);
+  body.classList.toggle('open');
+  chev.classList.toggle('open',body.classList.contains('open'));
 }
 
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function copyFix(i,e){
+  e.stopPropagation();
+  var f=lastFindings[i];if(!f)return;
+  navigator.clipboard.writeText(f.diffFix).then(function(){
+    var btn=document.getElementById('cpbtn_'+i);
+    if(!btn)return;
+    btn.textContent='Copied ✓';btn.classList.add('copied');
+    setTimeout(function(){btn.textContent='Copy fix';btn.classList.remove('copied');},1800);
+  });
 }
 
-// ══ EXAMPLE CODE ══
+function setFilter(sev,btn){
+  document.querySelectorAll('.filt-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  document.querySelectorAll('.finding').forEach(function(f){
+    f.style.display=sev==='all'||f.classList.contains(sev)?'':'none';
+  });
+}
+
+// ═══════════════════════════════════════════════
+// EXAMPLES & UTILS
+// ═══════════════════════════════════════════════
 var examples = {
-  js: `// E-commerce payment service — Node.js
+  js:`// E-commerce payment service — Node.js
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const { createSign, generateKeyPair } = require('crypto');
 
 // Generate RSA keypair for API authentication
-generateKeyPair('rsa', {
-  modulusLength: 2048,
-  publicKeyEncoding: { type: 'spki', format: 'pem' },
-  privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
-}, (err, publicKey, privateKey) => {
-  console.log('Keys generated');
+crypto.generateKeyPair('rsa', { modulusLength: 2048 }, (err, pub, priv) => {
+  console.log('RSA keys generated');
 });
 
-// Sign payment authorization JWT with RS256
-async function issuePaymentToken(userId, amount) {
-  const payload = { userId, amount, exp: Date.now() + 3600000 };
-  return jwt.sign(payload, process.env.RSA_PRIVATE_KEY, { algorithm: 'RS256' });
+// Sign payment JWT with RS256
+function issuePaymentToken(userId, amount) {
+  return jwt.sign({ userId, amount }, process.env.RSA_PRIVATE_KEY, { algorithm: 'RS256' });
 }
 
 // Encrypt card data with RSA-OAEP
@@ -729,56 +1041,25 @@ async function encryptCardData(cardNumber, publicKey) {
   return crypto.subtle.encrypt({ name: 'RSA-OAEP' }, pubKey, new TextEncoder().encode(cardNumber));
 }
 
-// ECDH for session key agreement
-async function deriveSessionKey(theirPublicKey) {
-  const myKey = await crypto.subtle.generateKey(
-    { name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveKey']
-  );
-  return crypto.subtle.deriveKey(
-    { name: 'ECDH', public: theirPublicKey },
-    myKey.privateKey,
-    { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
-  );
+// ECDH session key agreement
+async function deriveSessionKey() {
+  return crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveKey']);
 }
 
-// Hash user password with SHA-1 (legacy)
-function hashPassword(password) {
-  return crypto.createHash('SHA-1').update(password).digest('hex');
+// Hash with SHA-1 (legacy)
+function hashData(data) {
+  return crypto.createHash('SHA-1').update(data).digest('hex');
 }`,
-
-  py: `# Healthcare records API — Python
+  py:`# Healthcare records API — Python
 from cryptography.hazmat.primitives.asymmetric import rsa, ec, padding
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 import hashlib, jwt, os
 
 # Generate RSA private key for patient record signing
 private_key = rsa.generate_private_key(
-    public_exponent=65537,
-    key_size=2048,
-    backend=default_backend()
+    public_exponent=65537, key_size=2048, backend=default_backend()
 )
-
-# Sign medical records with RSA-SHA256
-def sign_record(record_data):
-    signature = private_key.sign(
-        record_data,
-        padding.PKCS1v15(),
-        hashes.SHA256()
-    )
-    return signature
-
-# Encrypt patient data with RSA-OAEP
-def encrypt_patient_data(data, public_key):
-    ciphertext = public_key.encrypt(
-        data,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
-        )
-    )
-    return ciphertext
 
 # EC keypair for provider authentication
 ec_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
@@ -791,247 +1072,89 @@ def create_provider_token(provider_id):
 def hash_pin(pin):
     return hashlib.md5(pin.encode()).hexdigest()
 
-# File integrity check (legacy)
 def verify_file(filepath):
     h = hashlib.sha1()
     with open(filepath, 'rb') as f:
         h.update(f.read())
-    return h.hexdigest()`,
-
-  java: `// Banking transaction service — Java
-import java.security.*;
-import javax.crypto.*;
-import javax.crypto.spec.*;
-import java.security.spec.*;
-
-public class TransactionService {
-
-    // RSA key generation for transaction signing
-    public static KeyPair generateRSAKeyPair() throws Exception {
-        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
-        kpg.initialize(2048);
-        return kpg.generateKeyPair();
-    }
-
-    // EC keypair for ECDH session establishment
-    public static KeyPair generateECKeyPair() throws Exception {
-        KeyPairGenerator kpg = KeyPairGenerator.getInstance("EC");
-        kpg.initialize(new ECGenParameterSpec("secp256r1"));
-        return kpg.generateKeyPair();
-    }
-
-    // Encrypt account data with RSA
-    public static byte[] encryptRSA(byte[] data, PublicKey pubKey) throws Exception {
-        Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding");
-        cipher.init(Cipher.ENCRYPT_MODE, pubKey);
-        return cipher.doFinal(data);
-    }
-
-    // Hash transaction ID (legacy SHA-1)
-    public static String hashTransaction(String txId) throws Exception {
-        MessageDigest md = MessageDigest.getInstance("SHA-1");
-        byte[] hash = md.digest(txId.getBytes());
-        StringBuilder sb = new StringBuilder();
-        for (byte b : hash) sb.append(String.format("%02x", b));
-        return sb.toString();
-    }
-
-    // ECDH key agreement for session key
-    public static SecretKey deriveSessionKey(PrivateKey myPrivKey, PublicKey theirPubKey)
-        throws Exception {
-        KeyAgreement ka = KeyAgreement.getInstance("ECDH");
-        ka.init(myPrivKey);
-        ka.doPhase(theirPubKey, true);
-        byte[] sharedSecret = ka.generateSecret();
-        return new SecretKeySpec(sharedSecret, 0, 16, "AES");
-    }
-}`
+    return h.hexdigest()`
 };
 
-function loadExample() {
-  var lang = document.getElementById('langSelect').value;
-  if (lang === 'auto') lang = 'js';
-  document.getElementById('codeInput').value = examples[lang] || examples.js;
+function loadExample(){
+  var lang=document.getElementById('langSelect').value;
+  if(lang==='auto')lang='js';
+  document.getElementById('codeInput').value=examples[lang]||examples.js;
   onCodeInput();
 }
-function clearCode() {
-  document.getElementById('codeInput').value = '';
-  document.getElementById('lineNums').textContent = '1';
-  document.getElementById('charCount').textContent = '0 lines';
-  document.getElementById('detectedLang').textContent = 'Paste code →';
-  document.getElementById('detectedLang').className = 'lang-badge auto';
-  document.getElementById('resultsPane').innerHTML = '<div class="empty-state"><div class="empty-icon">⬡</div><div class="empty-title">No code scanned yet</div><div class="empty-hint">Paste your code on the left and click Scan. QuantumScan checks for RSA, ECDH, ECDSA, DH, MD5, SHA-1, and other quantum-vulnerable primitives with exact line numbers.</div></div>';
-  document.getElementById('findingCount').textContent = '';
+function clearCode(){
+  document.getElementById('codeInput').value='';
+  document.getElementById('lineNums').textContent='1';
+  document.getElementById('charCount').textContent='0 lines';
+  document.getElementById('detectedLang').textContent='Paste code →';
+  document.getElementById('detectedLang').className='lang-badge auto';
+  document.getElementById('resultsPane').innerHTML='<div class="empty-state"><div class="empty-icon">⬡</div><div class="empty-title">No code scanned yet</div><div class="empty-hint">Paste code and scan, or load an example.</div></div>';
+  document.getElementById('findingCount').textContent='';
+  lastFindings=[];
 }
 
-
-// ══ COPY FIX ══
-function copyFix(i, e) {
-  e.stopPropagation();
-  var findings = window._lastFindings || [];
-  if (!findings[i]) return;
-  var text = findings[i].diffFix;
-  navigator.clipboard.writeText(text).then(function() {
-    var btn = document.getElementById('cpbtn_' + i);
-    if (!btn) return;
-    btn.textContent = 'Copied ✓';
-    btn.classList.add('copied');
-    setTimeout(function() { btn.textContent = 'Copy fix'; btn.classList.remove('copied'); }, 1800);
+function exportMarkdown(){
+  if(!lastFindings.length){alert('Run a scan first.');return;}
+  var now=new Date().toISOString().slice(0,10);
+  var lines=['# QuantumScan AI Report','','**Date:** '+now,'**Language:** '+lastLang,'**Findings:** '+lastFindings.length,'','---',''];
+  lastFindings.forEach(function(f,i){
+    lines.push('### '+(i+1)+'. ['+f.sev+'] '+f.name);
+    lines.push('**Line:** '+f.lineNum+' | **HNDL:** '+f.hndl+'yr | **Q-Day Risk:** '+f.qdayRisk);
+    lines.push('');lines.push('**Attack:** '+f.attack);
+    lines.push('');lines.push('**Fix:** '+f.fix);
+    lines.push('');lines.push('```');lines.push(f.diffFix);lines.push('```');lines.push('');lines.push('---');lines.push('');
   });
+  var blob=new Blob([lines.join('\n')],{type:'text/markdown'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='quantumscan-report-'+now+'.md';a.click();
 }
 
-// ══ FILTER ══
-var _activeFilter = 'all';
-function setFilter(sev, btn) {
-  _activeFilter = sev;
-  document.querySelectorAll('.filt-btn').forEach(function(b) { b.classList.remove('active'); });
-  btn.classList.add('active');
-  var findings = document.querySelectorAll('.finding');
-  findings.forEach(function(f) {
-    if (sev === 'all') { f.style.display = ''; return; }
-    f.style.display = f.classList.contains(sev) ? '' : 'none';
-  });
-  var visible = Array.from(findings).filter(function(f) { return f.style.display !== 'none'; }).length;
-  document.getElementById('findingCount').textContent = visible + ' finding' + (visible !== 1 ? 's' : '') + (sev !== 'all' ? ' · ' + sev : '');
+// Drag & drop
+function syncLineNums(ta) {
+  document.getElementById('lineNums').scrollTop = ta.scrollTop;
 }
 
-// ══ EXPORT MARKDOWN ══
-function exportMarkdown() {
-  var findings = window._lastFindings || [];
-  if (!findings.length) { alert('Run a scan first.'); return; }
-  var lang = window._lastLang || 'unknown';
-  var now = new Date().toISOString().slice(0,10);
-  var sevScore = {CRITICAL:100, HIGH:75, MEDIUM:40, LOW:15};
-  var rawScore = Math.min(100, Math.round(findings.reduce(function(s,f){return s+(sevScore[f.sev]||10);},0)/findings.length));
-  var lines = [];
-  lines.push('# QuantumScan Report');
-  lines.push('');
-  lines.push('**Generated:** ' + now);
-  lines.push('**Language:** ' + lang);
-  lines.push('**Risk Score:** ' + rawScore + '/100');
-  lines.push('**Findings:** ' + findings.length);
-  lines.push('');
-  lines.push('---');
-  lines.push('');
-  lines.push('## Summary');
-  lines.push('');
-  var counts = {CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0};
-  findings.forEach(function(f){counts[f.sev]=(counts[f.sev]||0)+1;});
-  if(counts.CRITICAL) lines.push('- CRITICAL: ' + counts.CRITICAL);
-  if(counts.HIGH)     lines.push('- HIGH: ' + counts.HIGH);
-  if(counts.MEDIUM)   lines.push('- MEDIUM: ' + counts.MEDIUM);
-  if(counts.LOW)      lines.push('- LOW: ' + counts.LOW);
-  lines.push('');
-  lines.push('---');
-  lines.push('');
-  lines.push('## Findings');
-  lines.push('');
-  findings.forEach(function(f, i) {
-    lines.push('### ' + (i+1) + '. [' + f.sev + '] ' + f.name);
-    lines.push('');
-    lines.push('**Line:** ' + f.lineNum);
-    lines.push('**HNDL Window:** ' + f.hndl + ' years (data exposed until ~' + (2026+f.hndl) + ')');
-    lines.push('**Q-Day Risk:** ' + f.qdayRisk);
-    lines.push('');
-    lines.push('**Attack:** ' + f.attack);
-    lines.push('');
-    lines.push('**Fix:** ' + f.fix);
-    lines.push('');
-    lines.push('**Vulnerable code:**');
-    lines.push('```');
-    lines.push(f.diffVuln);
-    lines.push('```');
-    lines.push('');
-    lines.push('**PQC replacement:**');
-    lines.push('```');
-    lines.push(f.diffFix);
-    lines.push('```');
-    lines.push('');
-    lines.push('---');
-    lines.push('');
-  });
-  lines.push('_Generated by QuantumScan — github.com/munnamihir_');
-  var md = lines.join('\n');
-  var blob = new Blob([md], {type:'text/markdown'});
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'quantumscan-report-' + now + '.md';
-  a.click();
-}
-
-// ══ DRAG & DROP ══
-function handleDragOver(e) {
-  e.preventDefault();
-  document.getElementById('dropOverlay').classList.add('active');
-}
-function handleDragLeave(e) {
-  if (!document.getElementById('editorWrap').contains(e.relatedTarget)) {
-    document.getElementById('dropOverlay').classList.remove('active');
-  }
-}
-function handleDrop(e) {
-  e.preventDefault();
-  document.getElementById('dropOverlay').classList.remove('active');
-  var file = e.dataTransfer.files[0];
+function handleFileUpload(input) {
+  var file = input.files[0];
   if (!file) return;
-  var allowed = ['.js','.ts','.py','.java','.go','.cs','.rs','.rb','.php'];
-  var ext = '.' + file.name.split('.').pop().toLowerCase();
-  if (!allowed.includes(ext)) { alert('Unsupported file type. Drop: ' + allowed.join(' ')); return; }
   var langMap = {'.js':'js','.ts':'js','.py':'py','.java':'java','.go':'go','.cs':'cs','.rs':'rs','.rb':'rb','.php':'php'};
-  var detectedLang = langMap[ext] || 'auto';
-  document.getElementById('langSelect').value = detectedLang;
+  var ext = '.' + file.name.split('.').pop().toLowerCase();
+  var detLang = langMap[ext] || 'auto';
+  document.getElementById('langSelect').value = detLang;
   onLangChange();
   var reader = new FileReader();
   reader.onload = function(ev) {
     document.getElementById('codeInput').value = ev.target.result;
     onCodeInput();
-    // Auto-scan after drop
-    setTimeout(runScan, 100);
+    input.value = '';
   };
   reader.readAsText(file);
 }
 
-// ══ LIVE SCAN ══
-var _liveEnabled = false;
-var _liveTimer = null;
-function toggleLiveScan() {
-  _liveEnabled = !_liveEnabled;
-  var dot = document.getElementById('liveDot');
-  if (dot) { dot.classList.toggle('active', _liveEnabled); dot.style.display = _liveEnabled ? 'block' : 'none'; }
-}
-// Hook into existing onCodeInput for live scan
-var _origOnCodeInput = onCodeInput;
-onCodeInput = function() {
-  _origOnCodeInput();
-  if (!_liveEnabled) return;
-  clearTimeout(_liveTimer);
-  _liveTimer = setTimeout(function() {
-    var code = document.getElementById('codeInput').value;
-    if (code.trim().length > 10) runScan();
-  }, 600);
-};
-
-// ══ EXPAND / COLLAPSE ALL ══
-function expandAll() {
-  document.querySelectorAll('.finding-body').forEach(function(b) { b.classList.add('open'); });
-  document.querySelectorAll('.finding-chevron').forEach(function(c) { c.classList.add('open'); });
-}
-function collapseAll() {
-  document.querySelectorAll('.finding-body').forEach(function(b) { b.classList.remove('open'); });
-  document.querySelectorAll('.finding-chevron').forEach(function(c) { c.classList.remove('open'); });
+function handleDragOver(e){e.preventDefault();document.getElementById('dropOverlay').classList.add('active');}
+function handleDragLeave(e){if(!document.getElementById('editorWrap').contains(e.relatedTarget))document.getElementById('dropOverlay').classList.remove('active');}
+function handleDrop(e){
+  e.preventDefault();document.getElementById('dropOverlay').classList.remove('active');
+  var file=e.dataTransfer.files[0];if(!file)return;
+  var langMap={'.js':'js','.ts':'js','.py':'py','.java':'java','.go':'go','.cs':'cs','.rs':'rs'};
+  var ext='.'+file.name.split('.').pop().toLowerCase();
+  var detLang=langMap[ext]||'auto';
+  document.getElementById('langSelect').value=detLang;onLangChange();
+  var reader=new FileReader();
+  reader.onload=function(ev){document.getElementById('codeInput').value=ev.target.result;onCodeInput();setTimeout(runScan,100);};
+  reader.readAsText(file);
 }
 
-// ══ KEYBOARD SHORTCUTS ══
-document.addEventListener('keydown', function(e) {
-  var mod = e.ctrlKey || e.metaKey;
-  if (mod && e.key === 'Enter') { e.preventDefault(); runScan(); return; }
-  if (mod && e.key === 'l') { e.preventDefault(); clearCode(); return; }
-  if (mod && e.key === 'e') { e.preventDefault(); loadExample(); return; }
-  if (mod && e.key === '/') { e.preventDefault(); var anyOpen=document.querySelector('.finding-body.open'); anyOpen?collapseAll():expandAll(); return; }
-  if (mod && e.shiftKey && e.key === 'S') { e.preventDefault(); toggleLiveScan(); return; }
-  if (e.key === 'Escape') { collapseAll(); }
+// Keyboard shortcuts
+document.addEventListener('keydown',function(e){
+  if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();runScan();}
+  if((e.ctrlKey||e.metaKey)&&e.key==='l'){e.preventDefault();clearCode();}
+  if((e.ctrlKey||e.metaKey)&&e.key==='e'){e.preventDefault();loadExample();}
+  if(e.key==='Escape'){hideApiModal();}
 });
-
 </script>
 </body>
 </html>
