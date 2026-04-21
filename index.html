@@ -89,6 +89,27 @@ header{background:rgba(3,8,16,0.95);border-bottom:1px solid var(--border);paddin
 .export-btn{margin-left:auto;font-size:0.58rem;letter-spacing:1px;padding:3px 9px;border-radius:3px;border:1px solid rgba(245,197,24,0.3);background:rgba(245,197,24,0.06);color:var(--gold);cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all 0.15s;}
 .export-btn:hover{background:rgba(245,197,24,0.14);}
 .results-inner{flex:1;overflow-y:auto;padding:1rem;}
+.zip-progress{padding:2rem;text-align:center;}
+.zip-progress-label{font-size:0.75rem;color:var(--cyan);margin-bottom:1rem;letter-spacing:0.5px;}
+.zip-progress-track{background:rgba(255,255,255,0.06);border-radius:4px;height:5px;margin-bottom:0.75rem;overflow:hidden;}
+.zip-progress-fill{background:var(--cyan);height:5px;border-radius:4px;width:0%;transition:width 0.25s;}
+.zip-progress-file{font-size:0.62rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.zip-layout{display:grid;grid-template-columns:220px 1fr;gap:10px;height:100%;min-height:300px;}
+.zip-tree{overflow-y:auto;display:flex;flex-direction:column;gap:3px;padding-right:4px;}
+.zip-tree-item{padding:7px 10px;cursor:pointer;border-radius:6px;border-left:3px solid transparent;transition:background 0.15s;}
+.zip-tree-item:hover{background:rgba(255,255,255,0.04);}
+.zip-tree-item.active{background:rgba(0,229,255,0.07);}
+.zip-tree-name{font-size:0.68rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.zip-tree-meta{font-size:0.58rem;color:var(--muted);margin-top:1px;}
+.zip-file-view{overflow-y:auto;}
+.zip-summary{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem;margin-bottom:1rem;}
+.zip-summary-stats{display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:0.6rem;}
+.zip-stat{text-align:center;}
+.zip-stat-val{font-family:'Orbitron',sans-serif;font-size:1.3rem;font-weight:700;line-height:1;}
+.zip-stat-key{font-size:0.55rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-top:2px;}
+.zip-worst{font-size:0.65rem;color:var(--muted);border-top:1px solid var(--border);padding-top:0.6rem;}
+.zip-worst span{color:var(--red);}
+.btn-zip{background:rgba(57,255,20,0.08);color:var(--green);border:1px solid rgba(57,255,20,0.25);}
 
 /* SCORE CARD */
 .score-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:1.25rem;margin-bottom:1rem;display:flex;align-items:center;gap:1.5rem;}
@@ -268,7 +289,7 @@ header{background:rgba(3,8,16,0.95);border-bottom:1px solid var(--border);paddin
       <span id="detectedLang" class="lang-badge auto">Paste code →</span>
     </div>
     <div class="editor-wrap" id="editorWrap" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
-      <div class="drop-overlay" id="dropOverlay"><div class="drop-text">Drop file here</div><div class="drop-sub">.js .ts .py .java .go .cs .rs</div></div>
+      <div class="drop-overlay" id="dropOverlay"><div class="drop-text">Drop file or .zip here</div><div class="drop-sub">.js .ts .py .java .go .cs .rs .zip</div></div>
       <div class="line-nums" id="lineNums"><div>1</div></div>
       <textarea class="code-textarea" id="codeInput"
         placeholder="Paste your code here...
@@ -280,14 +301,16 @@ QuantumScan AI will:
   • Auto-rewrite the entire file with NIST PQC replacements
   • Answer your quantum cryptography questions
 
-Load an example to see it in action →"
+Load an example or upload a .zip project to start →"
         oninput="onCodeInput()" onscroll="syncLineNums(this)" spellcheck="false"></textarea>
     </div>
     <input type="file" id="fileUploadInput" accept=".js,.ts,.py,.java,.go,.cs,.rs,.rb,.php" style="display:none" onchange="handleFileUpload(this)">
+    <input type="file" id="zipUploadInput" accept=".zip" style="display:none" onchange="handleZipUpload(this)">
     <div class="editor-actions">
       <button class="btn btn-scan" onclick="runScan()">⬡ Scan</button>
-      <button class="btn btn-example" onclick="loadExample()">Load Example</button>
-      <button class="btn" style="background:rgba(0,229,255,0.08);color:var(--cyan);border:1px solid rgba(0,229,255,0.2);" onclick="document.getElementById('fileUploadInput').click()">↑ Open File</button>
+      <button class="btn btn-example" onclick="loadExample()">Example</button>
+      <button class="btn" style="background:rgba(0,229,255,0.08);color:var(--cyan);border:1px solid rgba(0,229,255,0.2);" onclick="document.getElementById('fileUploadInput').click()">↑ File</button>
+      <button class="btn btn-zip" onclick="document.getElementById('zipUploadInput').click()">⬡ Upload ZIP</button>
       <button class="btn btn-clear" onclick="clearCode()">Clear</button>
       <span class="char-count" id="charCount">0 lines</span>
     </div>
@@ -300,12 +323,13 @@ Load an example to see it in action →"
       <span id="findingCount" style="font-size:0.62rem;color:var(--muted);margin-left:auto;"></span>
     </div>
     <div class="filter-bar" id="filterBar" style="display:none;">
-      <button class="filt-btn all active" onclick="setFilter('all',this)">All</button>
+      <span id="filterBarMode" style="font-size:0.58rem;color:var(--cyan);letter-spacing:1px;display:none;">ZIP MODE</span>
+      <button class="filt-btn all active" id="filtAll" onclick="setFilter('all',this)">All</button>
       <button class="filt-btn critical" onclick="setFilter('critical',this)">Critical</button>
       <button class="filt-btn high" onclick="setFilter('high',this)">High</button>
       <button class="filt-btn medium" onclick="setFilter('medium',this)">Medium</button>
       <button class="filt-btn low" onclick="setFilter('low',this)">Low</button>
-      <button class="export-btn" onclick="exportMarkdown()">↓ Export .md</button>
+      <button class="export-btn" onclick="isZipMode ? exportZipMarkdown() : exportMarkdown()">↓ Export .md</button>
     </div>
     <div class="results-inner" id="resultsPane">
       <div class="empty-state">
@@ -653,6 +677,14 @@ async function quickAction(type) {
   if (isAiLoading) return;
 
   if (type === 'auto-fix') {
+    if (isZipMode && zipScanResults.length) {
+      var r = zipScanResults[selectedFileIdx];
+      if (!r || !r.findings.length) { addAgentMessage('system', 'Select a file with findings from the tree first.'); return; }
+      lastFindings = r.findings; lastLang = r.lang;
+      addAgentMessage('user', 'Auto-fix all vulnerabilities in ' + r.path.split('/').pop() + ' with NIST PQC replacements.');
+      await autoFixAll(r.content);
+      return;
+    }
     var code = document.getElementById('codeInput').value;
     if (!code.trim()) { addAgentMessage('system', 'Paste some code first, then scan.'); return; }
     if (!lastFindings.length) { addAgentMessage('system', 'Run a scan first so I know what to fix.'); return; }
@@ -662,6 +694,11 @@ async function quickAction(type) {
   }
 
   if (type === 'migration-report') {
+    if (isZipMode && zipScanResults.length) {
+      var summary = buildCodebaseSummary(zipScanResults);
+      lastFindings = summary.allFindings.slice(0, 20);
+      lastLang = 'multiple languages';
+    }
     if (!lastFindings.length) { addAgentMessage('system', 'Run a scan first to generate a migration report.'); return; }
     addAgentMessage('user', 'Generate a migration report for these findings.');
     await generateMigrationReport();
@@ -709,14 +746,16 @@ async function sendChat() {
   addAgentMessage('user', msg);
 
   var context = '';
-  if (lastFindings.length) {
+  if (isZipMode && zipScanResults.length) {
+    context = buildZipContext();
+  } else if (lastFindings.length) {
     context = '\n\nCurrent scan findings (' + lastFindings.length + ' vulnerabilities in ' + lastLang + ' code):\n';
     lastFindings.forEach(function(f) {
       context += '- [' + f.sev + '] ' + f.name + ' at line ' + f.lineNum + ' (HNDL: ' + f.hndl + ' years)\n';
     });
+    var code = document.getElementById('codeInput').value;
+    if (code.trim()) context += '\n\nCode being analyzed:\n```\n' + code.slice(0, 3000) + (code.length > 3000 ? '\n...[truncated]' : '') + '\n```';
   }
-  var code = document.getElementById('codeInput').value;
-  if (code.trim()) context += '\n\nCode being analyzed:\n```\n' + code.slice(0, 3000) + (code.length > 3000 ? '\n...[truncated]' : '') + '\n```';
 
   var msgId = 'ai_' + Date.now();
   addAgentMessage('ai', '<span class="ai-stream-dot"></span>', msgId);
@@ -1139,6 +1178,7 @@ function handleDragLeave(e){if(!document.getElementById('editorWrap').contains(e
 function handleDrop(e){
   e.preventDefault();document.getElementById('dropOverlay').classList.remove('active');
   var file=e.dataTransfer.files[0];if(!file)return;
+  if(file.name.toLowerCase().endsWith('.zip')){handleZipUpload({files:[file]});return;}
   var langMap={'.js':'js','.ts':'js','.py':'py','.java':'java','.go':'go','.cs':'cs','.rs':'rs'};
   var ext='.'+file.name.split('.').pop().toLowerCase();
   var detLang=langMap[ext]||'auto';
@@ -1146,6 +1186,241 @@ function handleDrop(e){
   var reader=new FileReader();
   reader.onload=function(ev){document.getElementById('codeInput').value=ev.target.result;onCodeInput();setTimeout(runScan,100);};
   reader.readAsText(file);
+}
+
+// ═══════════════════════════════════════════════
+// ZIP SCANNER — ALL 10 STEPS IMPLEMENTED
+// ═══════════════════════════════════════════════
+var isZipMode = false;
+var zipScanResults = [];
+var selectedFileIdx = 0;
+
+var SCANNABLE_EXT = new Set(['.js','.ts','.jsx','.tsx','.py','.java','.go','.cs','.rs','.rb','.php']);
+var SKIP_DIRS = ['node_modules/','vendor/','dist/','build/','target/','__pycache__/','.git/','coverage/','out/','bin/'];
+
+function detectLangFromExt(ext) {
+  var m={'.js':'js','.ts':'js','.jsx':'js','.tsx':'js','.py':'py','.java':'java','.go':'go','.cs':'cs','.rs':'rs','.rb':'auto','.php':'auto'};
+  return m[ext]||'auto';
+}
+
+async function extractZipFiles(file) {
+  var zip = await JSZip.loadAsync(file);
+  var results = [];
+  for(var [path,entry] of Object.entries(zip.files)){
+    if(entry.dir) continue;
+    if(SKIP_DIRS.some(function(d){return path.includes(d);})) continue;
+    var ext = '.'+path.split('.').pop().toLowerCase();
+    if(!SCANNABLE_EXT.has(ext)) continue;
+    var content = await entry.async('string');
+    if(content.length > 200000) content = content.slice(0,200000);
+    results.push({path, content, lang: detectLangFromExt(ext)});
+  }
+  return results;
+}
+
+function scanSingleFile(path, content, lang) {
+  var lines = content.split('\n');
+  var findings = [];
+  VULN_DB.forEach(function(vuln){
+    if(!vuln.lang.includes(lang) && !vuln.lang.includes('auto')) return;
+    var regex = new RegExp(vuln.pattern.source,'gi');
+    var match;
+    while((match=regex.exec(content))!==null){
+      var lineNum = content.substring(0,match.index).split('\n').length;
+      var lineText = (lines[lineNum-1]||'').trim();
+      if(findings.some(function(f){return f.lineNum===lineNum&&f.name===vuln.name;})) continue;
+      findings.push(Object.assign({},vuln,{lineNum,lineText,_filePath:path}));
+    }
+  });
+  var sevOrder={CRITICAL:0,HIGH:1,MEDIUM:2,LOW:3};
+  findings.sort(function(a,b){return (sevOrder[a.sev]||5)-(sevOrder[b.sev]||5)||a.lineNum-b.lineNum;});
+  return {path,findings,lang,lineCount:lines.length};
+}
+
+async function scanAllFiles(files, onProgress) {
+  var allResults=[];
+  for(var i=0;i<files.length;i++){
+    onProgress(i+1,files.length,files[i].path);
+    allResults.push(scanSingleFile(files[i].path,files[i].content,files[i].lang));
+    await new Promise(function(r){setTimeout(r,0);});
+  }
+  return allResults;
+}
+
+function buildCodebaseSummary(allResults){
+  var allFindings=allResults.flatMap(function(r){return r.findings;});
+  var sevScore={CRITICAL:100,HIGH:75,MEDIUM:40,LOW:15};
+  var riskScore=allFindings.length?Math.min(100,Math.round(allFindings.reduce(function(s,f){return s+(sevScore[f.sev]||10);},0)/allFindings.length)):0;
+  var hndlMax=allFindings.length?Math.max.apply(null,allFindings.map(function(f){return f.hndl||0;})):0;
+  var worstFile=[].concat(allResults).sort(function(a,b){
+    var aC=a.findings.filter(function(f){return f.sev==='CRITICAL';}).length;
+    var bC=b.findings.filter(function(f){return f.sev==='CRITICAL';}).length;
+    return bC-aC||b.findings.length-a.findings.length;
+  })[0];
+  return {
+    totalFiles:allResults.length,
+    filesWithFindings:allResults.filter(function(r){return r.findings.length>0;}).length,
+    allFindings,
+    critCount:allFindings.filter(function(f){return f.sev==='CRITICAL';}).length,
+    highCount:allFindings.filter(function(f){return f.sev==='HIGH';}).length,
+    medCount:allFindings.filter(function(f){return f.sev==='MEDIUM';}).length,
+    lowCount:allFindings.filter(function(f){return f.sev==='LOW';}).length,
+    hndlMax,riskScore,worstFile
+  };
+}
+
+function showZipProgress(current,total,filename){
+  var pct=total>0?Math.round((current/total)*100):0;
+  document.getElementById('resultsPane').innerHTML=
+    '<div class="zip-progress">'
+    +'<div class="zip-progress-label">Scanning file '+current+' of '+total+'</div>'
+    +'<div class="zip-progress-track"><div class="zip-progress-fill" style="width:'+pct+'%"></div></div>'
+    +'<div class="zip-progress-file">'+escHtml(filename)+'</div>'
+    +'</div>';
+}
+
+function renderZipTree(results,selIdx){
+  var SEV_COLOR={CRITICAL:'var(--red)',HIGH:'var(--orange)',MEDIUM:'var(--gold)',LOW:'var(--green)'};
+  return results.map(function(r,i){
+    var topSev=r.findings.length?r.findings[0].sev:'NONE';
+    var color=SEV_COLOR[topSev]||'var(--muted)';
+    var parts=r.path.split('/');
+    var shortName=parts.slice(-1)[0];
+    var folder=parts.length>1?parts.slice(-2,-1)[0]+'/':'';
+    var active=i===selIdx;
+    return '<div class="zip-tree-item'+(active?' active':'')+'" style="border-left-color:'+color+'" onclick="selectZipFile('+i+')">'
+      +'<div class="zip-tree-name" title="'+escHtml(r.path)+'">'+escHtml(shortName)+'</div>'
+      +'<div class="zip-tree-meta">'+escHtml(folder)+(r.findings.length?' · <span style="color:'+color+'">'+r.findings.length+' finding'+(r.findings.length!==1?'s':'')+'</span>':' · <span style="color:var(--muted)">clean</span>')+'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function renderZipResults(allResults){
+  isZipMode=true;
+  var summary=buildCodebaseSummary(allResults);
+  var riskColor=summary.riskScore>=70?'var(--red)':summary.riskScore>=40?'var(--gold)':'var(--green)';
+  var worstPath=summary.worstFile?summary.worstFile.path.split('/').slice(-1)[0]:'none';
+
+  var summaryHtml=
+    '<div class="zip-summary">'
+    +'<div class="zip-summary-stats">'
+    +'<div class="zip-stat"><div class="zip-stat-val" style="color:var(--cyan)">'+summary.totalFiles+'</div><div class="zip-stat-key">Files</div></div>'
+    +'<div class="zip-stat"><div class="zip-stat-val" style="color:var(--red)">'+summary.allFindings.length+'</div><div class="zip-stat-key">Findings</div></div>'
+    +'<div class="zip-stat"><div class="zip-stat-val" style="color:'+riskColor+'">'+summary.riskScore+'</div><div class="zip-stat-key">Risk score</div></div>'
+    +'<div class="zip-stat"><div class="zip-stat-val" style="color:var(--gold)">'+summary.hndlMax+'yr</div><div class="zip-stat-key">Max HNDL</div></div>'
+    +'</div>'
+    +'<div class="zip-worst">Most critical: <span>'+escHtml(worstPath)+'</span>'
+    +(summary.critCount?' · '+summary.critCount+' critical · '+summary.highCount+' high':' · '+summary.highCount+' high')+'</div>'
+    +'</div>';
+
+  document.getElementById('resultsPane').innerHTML=
+    summaryHtml
+    +'<div class="zip-layout">'
+    +'<div class="zip-tree" id="zipTree">'+renderZipTree(allResults,0)+'</div>'
+    +'<div class="zip-file-view" id="zipFileView"></div>'
+    +'</div>';
+
+  document.getElementById('filterBar').style.display='flex';
+  document.getElementById('filterBarMode').style.display='inline';
+  document.getElementById('findingCount').textContent=summary.filesWithFindings+' of '+summary.totalFiles+' files affected';
+  selectZipFile(0);
+}
+
+function selectZipFile(idx){
+  selectedFileIdx=idx;
+  var r=zipScanResults[idx];
+  document.getElementById('zipTree').innerHTML=renderZipTree(zipScanResults,idx);
+  var view=document.getElementById('zipFileView');
+  if(!view) return;
+  if(!r.findings.length){
+    view.innerHTML='<div class="empty-state"><div class="empty-icon" style="color:var(--green);opacity:0.6">✓</div><div class="empty-title" style="color:var(--green)">No vulnerabilities in this file</div><div class="empty-hint">'+escHtml(r.path)+' — '+r.lineCount+' lines, clean.</div></div>';
+    return;
+  }
+  lastFindings=r.findings;
+  lastLang=r.lang;
+  var savedId=document.getElementById('resultsPane').id;
+  view.id='resultsPane';
+  renderResults(r.findings,r.lang,r.lineCount);
+  view.id='zipFileView';
+  document.getElementById('resultsPane').id=savedId;
+}
+
+async function handleZipUpload(input){
+  if(typeof JSZip==='undefined'){alert('JSZip not loaded yet. Please wait a moment and try again.');return;}
+  var file=input.files?input.files[0]:null;
+  if(!file) return;
+  if(file.size>50*1024*1024){alert('ZIP is over 50MB. Please use a smaller archive or remove large binary files.');return;}
+  document.getElementById('filterBar').style.display='none';
+  try {
+    showZipProgress(0,1,'Extracting archive…');
+    var files=await extractZipFiles(file);
+    if(!files.length){
+      document.getElementById('resultsPane').innerHTML='<div class="empty-state"><div class="empty-icon">⬡</div><div class="empty-title">No scannable files found</div><div class="empty-hint">The ZIP contains no .js, .ts, .py, .java, .go, .cs, or .rs files. Directories like node_modules and dist are skipped.</div></div>';
+      return;
+    }
+    var allResults=await scanAllFiles(files,showZipProgress);
+    allResults.sort(function(a,b){
+      var aC=a.findings.filter(function(f){return f.sev==='CRITICAL';}).length;
+      var bC=b.findings.filter(function(f){return f.sev==='CRITICAL';}).length;
+      return bC-aC||b.findings.length-a.findings.length;
+    });
+    zipScanResults=allResults;
+    selectedFileIdx=0;
+    renderZipResults(allResults);
+    if(API_KEY&&allResults.length){
+      var summary=buildCodebaseSummary(allResults);
+      addAgentMessage('system','ZIP scan complete: '+allResults.length+' files, '+summary.allFindings.length+' findings. Most critical file: '+summary.worstFile?.path+'. Use quick actions to auto-fix or generate a migration report.');
+    }
+  } catch(err){
+    var msg=err.message&&err.message.toLowerCase().includes('password')
+      ?'This ZIP is password-protected. Please decrypt it first.'
+      :'Failed to read ZIP: '+err.message;
+    document.getElementById('resultsPane').innerHTML='<div class="empty-state"><div class="empty-icon" style="color:var(--red)">✕</div><div class="empty-title" style="color:var(--red)">ZIP Error</div><div class="empty-hint">'+escHtml(msg)+'</div></div>';
+  }
+  if(input.value!==undefined) input.value='';
+}
+
+function exportZipMarkdown(){
+  if(!zipScanResults.length){alert('Run a ZIP scan first.');return;}
+  var now=new Date().toISOString().slice(0,10);
+  var summary=buildCodebaseSummary(zipScanResults);
+  var lines=['# QuantumScan AI — Codebase Report','',
+    '**Date:** '+now,'**Files scanned:** '+summary.totalFiles,
+    '**Total findings:** '+summary.allFindings.length,
+    '**Risk score:** '+summary.riskScore+'/100',
+    '**Max HNDL window:** '+summary.hndlMax+' years',
+    '**Most critical file:** '+(summary.worstFile?summary.worstFile.path:'none'),
+    '','---',''];
+  zipScanResults.forEach(function(r){
+    if(!r.findings.length) return;
+    lines.push('## '+r.path);
+    lines.push('**Language:** '+r.lang+' | **Findings:** '+r.findings.length+' | **Lines:** '+r.lineCount);
+    lines.push('');
+    r.findings.forEach(function(f,i){
+      lines.push('### '+(i+1)+'. ['+f.sev+'] '+f.name+' — Line '+f.lineNum);
+      lines.push('**HNDL:** '+f.hndl+' years | **Q-Day Risk:** '+f.qdayRisk);
+      lines.push('');lines.push('**Attack:** '+f.attack);
+      lines.push('');lines.push('**Fix:** '+f.fix);
+      lines.push('');lines.push('```');lines.push(f.diffFix);lines.push('```');lines.push('');
+    });
+    lines.push('---');lines.push('');
+  });
+  var blob=new Blob([lines.join('\n')],{type:'text/markdown'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='quantumscan-codebase-'+now+'.md';
+  a.click();
+}
+
+// Patch quickAction and sendChat to use ZIP context when in ZIP mode
+function buildZipContext(){
+  if(!zipScanResults.length) return '';
+  var summary=buildCodebaseSummary(zipScanResults);
+  var ctx='\n\nCodebase ZIP scan:\n- '+summary.totalFiles+' files scanned\n- '+summary.allFindings.length+' total findings\n- Max HNDL: '+summary.hndlMax+' years\n- Worst file: '+(summary.worstFile?summary.worstFile.path:'none')+'\n\nTop findings:\n';
+  summary.allFindings.slice(0,12).forEach(function(f){
+    ctx+='- ['+f.sev+'] '+f.name+' in '+f._filePath+' line '+f.lineNum+'\n';
+  });
+  return ctx;
 }
 
 // Keyboard shortcuts
@@ -1156,5 +1431,6 @@ document.addEventListener('keydown',function(e){
   if(e.key==='Escape'){hideApiModal();}
 });
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </body>
 </html>
